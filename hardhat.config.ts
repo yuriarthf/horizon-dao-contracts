@@ -1,3 +1,5 @@
+import path from "path";
+
 // brings ethers.js to Hardhat
 // https://hardhat.org/hardhat-runner/plugins/nomiclabs-hardhat-ethers
 import "@nomiclabs/hardhat-ethers";
@@ -53,7 +55,9 @@ import "./tasks/index";
  */
 
 // Loads env variables from .env file
-require("dotenv").config();
+import { config as dotenvConfig } from "dotenv";
+const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
+dotenvConfig({ path: path.resolve(__dirname, dotenvConfigPath) });
 
 // https://hardhat.org/hardhat-runner/docs/config
 import { HardhatUserConfig } from "hardhat/config";
