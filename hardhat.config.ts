@@ -1,29 +1,34 @@
-// enable etherscan integration
-// https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html
 // brings ethers.js to Hardhat
 // https://hardhat.org/hardhat-runner/plugins/nomiclabs-hardhat-ethers
 import "@nomiclabs/hardhat-ethers";
+
+// enable etherscan integration
+// https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html
 import "@nomiclabs/hardhat-etherscan";
+
 // build smart contract tests using Waffle in Hardhat
 // https://www.npmjs.com/package/@nomiclabs/hardhat-waffle
 import "@nomiclabs/hardhat-waffle";
+
 // generate types for smart contracts (solidity)
 // https://www.npmjs.com/package/@typechain/hardhat
 import "@typechain/hardhat";
+
 // compile Solidity sources directly from NPM dependencies
 // https://github.com/ItsNickBarry/hardhat-dependency-compiler
 import "hardhat-dependency-compiler";
+
 // adds a mechanism to deploy contracts to any network,
 // keeping track of them and replicating the same environment for testing
 // https://www.npmjs.com/package/hardhat-deploy
 import "hardhat-deploy";
+
 // enable hardhat-gas-reporter
 // https://hardhat.org/plugins/hardhat-gas-reporter.html
 import "hardhat-gas-reporter";
-// https://hardhat.org/hardhat-runner/docs/config
-import { HardhatUserConfig } from "hardhat/config";
+
 // enable Solidity-coverage
-// https://hardhat.org/plugins/solidity-coverage.html
+// https://github.com/sc-forks/solidity-coverage
 import "solidity-coverage";
 
 // add all hardhat tasks
@@ -50,6 +55,8 @@ import "./tasks/index";
 // Loads env variables from .env file
 require("dotenv").config();
 
+// https://hardhat.org/hardhat-runner/docs/config
+import { HardhatUserConfig } from "hardhat/config";
 // verify environment setup, display warning if required, replace missing values with fakes
 const FAKE_MNEMONIC = "test test test test test test test test test test test junk";
 if (!process.env.MNEMONIC1 && !process.env.P_KEY1) {
