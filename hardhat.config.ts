@@ -1,123 +1,226 @@
-import "@nomicfoundation/hardhat-toolbox";
-import { config as dotenvConfig } from "dotenv";
-import type { HardhatUserConfig } from "hardhat/config";
-import type { NetworkUserConfig } from "hardhat/types";
-import { resolve } from "path";
+// enable etherscan integration
+// https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html
+// brings ethers.js to Hardhat
+// https://hardhat.org/hardhat-runner/plugins/nomiclabs-hardhat-ethers
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-etherscan";
+// build smart contract tests using Waffle in Hardhat
+// https://www.npmjs.com/package/@nomiclabs/hardhat-waffle
+import "@nomiclabs/hardhat-waffle";
+// generate types for smart contracts (solidity)
+// https://www.npmjs.com/package/@typechain/hardhat
+import "@typechain/hardhat";
+// compile Solidity sources directly from NPM dependencies
+// https://github.com/ItsNickBarry/hardhat-dependency-compiler
+import "hardhat-dependency-compiler";
+// adds a mechanism to deploy contracts to any network,
+// keeping track of them and replicating the same environment for testing
+// https://www.npmjs.com/package/hardhat-deploy
+import "hardhat-deploy";
+// enable hardhat-gas-reporter
+// https://hardhat.org/plugins/hardhat-gas-reporter.html
+import "hardhat-gas-reporter";
+// https://hardhat.org/hardhat-runner/docs/config
+import { HardhatUserConfig } from "hardhat/config";
+// enable Solidity-coverage
+// https://hardhat.org/plugins/solidity-coverage.html
+import "solidity-coverage";
 
-import "./tasks/accounts";
-import "./tasks/deploy";
+// add all hardhat tasks
+import "./tasks/index";
 
-const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
-dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
+/**
+ * default Hardhat configuration which uses account mnemonic to derive accounts
+ * script expects following environment variables to be set:
+ *   - P_KEY1 – mainnet private key, should start with 0x
+ *     or
+ *   - MNEMONIC1 – mainnet mnemonic, 12 words
+ *
+ *   - P_KEY5 – goerli private key, should start with 0x
+ *     or
+ *   - MNEMONIC5 – goerli mnemonic, 12 words
+ *
+ *   - ALCHEMY_KEY – Alchemy API key
+ *     or
+ *   - INFURA_KEY – Infura API key (Project ID)
+ *
+ *   - ETHERSCAN_KEY – Etherscan API key
+ */
 
-// Ensure that we have all the environment variables we need.
-const mnemonic: string | undefined = process.env.MNEMONIC;
-if (!mnemonic) {
-  throw new Error("Please set your MNEMONIC in a .env file");
+// Loads env variables from .env file
+require("dotenv").config();
+
+// verify environment setup, display warning if required, replace missing values with fakes
+const FAKE_MNEMONIC = "test test test test test test test test test test test junk";
+if (!process.env.MNEMONIC1 && !process.env.P_KEY1) {
+  console.warn("neither MNEMONIC1 nor P_KEY1 is not set. Mainnet deployments won't be available");
+  process.env.MNEMONIC1 = FAKE_MNEMONIC;
+} else if (process.env.P_KEY1 && !process.env.P_KEY1.startsWith("0x")) {
+  console.warn("P_KEY1 doesn't start with 0x. Appended 0x");
+  process.env.P_KEY1 = "0x" + process.env.P_KEY1;
 }
-
-const infuraApiKey: string | undefined = process.env.INFURA_API_KEY;
-if (!infuraApiKey) {
-  throw new Error("Please set your INFURA_API_KEY in a .env file");
+if (!process.env.MNEMONIC5 && !process.env.P_KEY5) {
+  console.warn("neither MNEMONIC5 nor P_KEY5 is not set. Goerli deployments won't be available");
+  process.env.MNEMONIC5 = FAKE_MNEMONIC;
+} else if (process.env.P_KEY5 && !process.env.P_KEY5.startsWith("0x")) {
+  console.warn("P_KEY5 doesn't start with 0x. Appended 0x");
+  process.env.P_KEY5 = "0x" + process.env.P_KEY5;
 }
-
-const chainIds = {
-  "arbitrum-mainnet": 42161,
-  avalanche: 43114,
-  bsc: 56,
-  goerli: 5,
-  hardhat: 31337,
-  mainnet: 1,
-  "optimism-mainnet": 10,
-  "polygon-mainnet": 137,
-  "polygon-mumbai": 80001,
-};
-
-function getChainConfig(chain: keyof typeof chainIds): NetworkUserConfig {
-  let jsonRpcUrl: string;
-  switch (chain) {
-    case "avalanche":
-      jsonRpcUrl = "https://api.avax.network/ext/bc/C/rpc";
-      break;
-    case "bsc":
-      jsonRpcUrl = "https://bsc-dataseed1.binance.org";
-      break;
-    default:
-      jsonRpcUrl = "https://" + chain + ".infura.io/v3/" + infuraApiKey;
-  }
-  return {
-    accounts: {
-      count: 10,
-      mnemonic,
-      path: "m/44'/60'/0'/0",
-    },
-    chainId: chainIds[chain],
-    url: jsonRpcUrl,
-  };
+if (!process.env.INFURA_KEY && !process.env.ALCHEMY_KEY) {
+  console.warn("neither INFURA_KEY nor ALCHEMY_KEY is not set. Deployments may not be available");
+  process.env.INFURA_KEY = "";
+  process.env.ALCHEMY_KEY = "";
+}
+if (!process.env.ETHERSCAN_KEY) {
+  console.warn("ETHERSCAN_KEY is not set. Deployed smart contract code verification won't be available");
+  process.env.ETHERSCAN_KEY = "";
 }
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
-  etherscan: {
-    apiKey: {
-      arbitrumOne: process.env.ARBISCAN_API_KEY || "",
-      avalanche: process.env.SNOWTRACE_API_KEY || "",
-      bsc: process.env.BSCSCAN_API_KEY || "",
-      goerli: process.env.ETHERSCAN_API_KEY || "",
-      mainnet: process.env.ETHERSCAN_API_KEY || "",
-      optimisticEthereum: process.env.OPTIMISM_API_KEY || "",
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonMumbai: process.env.POLYGONSCAN_API_KEY || "",
-    },
-  },
-  gasReporter: {
-    currency: "USD",
-    enabled: process.env.REPORT_GAS ? true : false,
-    excludeContracts: [],
-    src: "./contracts",
-  },
   networks: {
+    // https://hardhat.org/hardhat-network/
     hardhat: {
+      // set networkId to 0xeeeb04de as for all local networks
+      chainId: 0xeeeb04de,
+      // set the gas price to one for convenient tx costs calculations in tests
+      // gasPrice: 1,
+      // London hard fork fix: impossible to set gas price lower than baseFeePerGas (875,000,000)
+      initialBaseFeePerGas: 0,
       accounts: {
-        mnemonic,
+        count: 35,
       },
-      chainId: chainIds.hardhat,
+      /*
+			forking: {
+				url: "https://mainnet.infura.io/v3/" + process.env.INFURA_KEY, // create a key: https://infura.io/
+				enabled: !!(process.env.HARDHAT_FORK),
+			},
+*/
     },
-    arbitrum: getChainConfig("arbitrum-mainnet"),
-    avalanche: getChainConfig("avalanche"),
-    bsc: getChainConfig("bsc"),
-    goerli: getChainConfig("goerli"),
-    mainnet: getChainConfig("mainnet"),
-    optimism: getChainConfig("optimism-mainnet"),
-    "polygon-mainnet": getChainConfig("polygon-mainnet"),
-    "polygon-mumbai": getChainConfig("polygon-mumbai"),
+    // https://etherscan.io/
+    mainnet: {
+      url: get_endpoint_url("mainnet"),
+      accounts: get_accounts(process.env.P_KEY1, process.env.MNEMONIC1),
+    },
+    // https://goerli.etherscan.io/
+    goerli: {
+      url: get_endpoint_url("goerli"),
+      accounts: get_accounts(process.env.P_KEY5, process.env.MNEMONIC5),
+    },
   },
-  paths: {
-    artifacts: "./artifacts",
-    cache: "./cache",
-    sources: "./contracts",
-    tests: "./test",
-  },
+
+  // Configure Solidity compiler
   solidity: {
-    version: "0.8.15",
-    settings: {
-      metadata: {
-        // Not including the metadata hash
-        // https://github.com/paulrberg/hardhat-template/issues/31
-        bytecodeHash: "none",
+    // https://hardhat.org/guides/compile-contracts.html
+    compilers: [
+      {
+        // project main compiler version
+        version: "0.8.17",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
-      // Disable the optimizer when debugging
-      // https://hardhat.org/hardhat-network/#solidity-optimizer-support
-      optimizer: {
-        enabled: true,
-        runs: 800,
-      },
+    ],
+  },
+
+  // Set default mocha options here, use special reporters etc.
+  mocha: {
+    timeout: 100000000,
+  },
+
+  // Configure etherscan integration
+  // https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html
+  etherscan: {
+    // Your API key for Etherscan
+    // Obtain one at https://etherscan.io/
+    apiKey: process.env.ETHERSCAN_KEY,
+  },
+
+  // hardhat-gas-reporter will be disabled by default, use REPORT_GAS environment variable to enable it
+  // https://hardhat.org/plugins/hardhat-gas-reporter.html
+  gasReporter: {
+    enabled: !!process.env.REPORT_GAS,
+  },
+
+  // compile Solidity sources directly from NPM dependencies
+  // https://github.com/ItsNickBarry/hardhat-dependency-compiler
+  dependencyCompiler: {
+    paths: [
+      // ERC1967 is used to deploy upgradeable contracts
+      "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol",
+    ],
+  },
+
+  // namedAccounts allows you to associate names to addresses and have them configured per chain
+  // https://github.com/wighawag/hardhat-deploy#1-namedaccounts-ability-to-name-addresses
+  namedAccounts: {
+    // deployer account is always the accounut #0 derived from the mnemonic/private key
+    deployer: {
+      default: 0,
     },
   },
   typechain: {
-    outDir: "types",
     target: "ethers-v5",
+    alwaysGenerateOverloads: false, // should overloads with full signatures like deposit(uint256) be generated always, even if there are no overloads?
   },
 };
-
 export default config;
+
+/**
+ * Determines a JSON-RPC endpoint to use to connect to the node
+ * based on the requested network name and environment variables set
+ *
+ * Tries to use custom RPC URL first (MAINNET_RPC_URL/ROPSTEN_RPC_URL/RINKEBY_RPC_URL/KOVAN_RPC_URL)
+ * Tries to use alchemy RPC URL next (if ALCHEMY_KEY is set)
+ * Fallbacks to infura RPC URL
+ *
+ * @param network_name one of mainnet/ropsten/rinkeby/kovan
+ * @return JSON-RPC endpoint URL
+ */
+function get_endpoint_url(network_name: string) {
+  // try custom RPC endpoint first (private node, quicknode, etc.)
+  // create a quicknode key: https://www.quicknode.com/
+  if (process.env.MAINNET_RPC_URL && network_name === "mainnet") {
+    return process.env.MAINNET_RPC_URL;
+  }
+  if (process.env.GOERLI_RPC_URL && network_name === "goerli") {
+    return process.env.GOERLI_RPC_URL;
+  }
+
+  // try the alchemy next
+  // create a key: https://www.alchemy.com/
+  if (process.env.ALCHEMY_KEY) {
+    switch (network_name) {
+      case "mainnet":
+      case "goerli":
+        return `https://eth-${network_name}.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`;
+      default:
+        throw Error("Invalid network");
+    }
+  }
+
+  // fallback to infura
+  // create a key: https://infura.io/
+  switch (network_name) {
+    case "mainnet":
+    case "goerli":
+      return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY};`;
+    default:
+      throw Error("Invalid network");
+  }
+}
+
+/**
+ * Depending on which of the inputs are available (private key or mnemonic),
+ * constructs an account object for use in the hardhat config
+ *
+ * @param p_key account private key, export private key from mnemonic: https://metamask.io/
+ * @param mnemonic 12 words mnemonic, create 12 words: https://metamask.io/
+ * @return either [p_key] if p_key is defined, or {mnemonic} if mnemonic is defined
+ */
+function get_accounts(p_key?: string, mnemonic?: string) {
+  return p_key ? [p_key] : mnemonic ? { mnemonic } : undefined;
+}
