@@ -19,5 +19,3 @@ rules:
     - error
     - argsIgnorePattern: "_"
       varsIgnorePattern: "_"
-ignorePatterns:
-  - "typechain-types/**/*"
