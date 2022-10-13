@@ -8,10 +8,13 @@ import { ERC20WithSupply } from "boring-solidity/contracts/ERC20.sol";
 /// @author HorizonDAO (Yuri Fernandes)
 contract SkyERC20 is ERC20WithSupply {
     /// @dev Tokens' name
-    string public constant name = "Horizon Sky";
+    string public constant name = "HorizonDAO Token";
 
     /// @dev Tokens' symbol
     string public constant symbol = "SKY";
+
+    /// @dev token decimals
+    uint256 public constant decimals = 18;
 
     /// @dev Maximum supply of 200M tokens (with 18 decimal points)
     uint256 public constant MAX_SUPPLY = 200_000_000 * 1e18;
