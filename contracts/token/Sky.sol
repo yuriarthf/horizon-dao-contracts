@@ -194,6 +194,9 @@ contract SkyERC20 is ERC20WithSupply {
         _availableSupply = availableSupply;
         _currentEpoch = currentEpoch;
         _currentEpochStartTime = currentEpochStartTime;
+        if (_currentEpoch == 0) {
+            return (rampValues[0], 1, _currentEpochStartTime);
+        }
         while (_currentEpochStartTime + epochDurations[_currentEpoch] <= now64()) {
             _availableSupply += rampValues[++_currentEpoch];
             _currentEpochStartTime += uint64(epochDurations[_currentEpoch]);
