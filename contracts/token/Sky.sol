@@ -1,21 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { ERC20WithSupply } from "boring-solidity/contracts/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title SkyERC20
 /// @notice HorizonDAO Governance token
 /// @author HorizonDAO (Yuri Fernandes)
-contract SkyERC20 is ERC20WithSupply {
-    /// @dev Tokens' name
-    string public constant name = "HorizonDAO Token";
-
-    /// @dev Tokens' symbol
-    string public constant symbol = "SKY";
-
-    /// @dev token decimals
-    uint256 public constant decimals = 18;
-
+contract SkyERC20 is ERC20 {
     /// @dev Maximum supply of 200M tokens (with 18 decimal points)
     uint256 public constant MAX_SUPPLY = 200_000_000 * 1e18;
 
@@ -95,7 +86,7 @@ contract SkyERC20 is ERC20WithSupply {
         uint64 _initialEpochStart,
         uint64[] memory _epochDurations,
         uint256[] memory _rampValues
-    ) {
+    ) ERC20("HorizonDAO Token", "SKY") {
         require(_numberOfEpochs >= 1, "Should have at least 1 epoch");
         require(_rampValues.length == _numberOfEpochs, "Number of ramps should be equal to epochs");
         require(_epochDurations.length == _numberOfEpochs - 1, "Epoch durations should be provided for n-1 epochs");
@@ -103,7 +94,7 @@ contract SkyERC20 is ERC20WithSupply {
         for (uint256 i = 0; i < _rampValues.length; i++) {
             totalReleasedSupply += _rampValues[i];
             rampValues.push(_rampValues[i]);
-            if (i != _rampValues.length) epochDurations.push(_epochDurations[i]);
+            if (i != _rampValues.length - 1) epochDurations.push(_epochDurations[i]);
         }
         require(totalReleasedSupply == MAX_SUPPLY, "Sum of ramps should be equal to MAX_SUPPLY");
         // set the first epoch start time
@@ -144,7 +135,7 @@ contract SkyERC20 is ERC20WithSupply {
     /// @param amount The amount of tokens to mint
     function mint(address account, uint256 amount) external updateEpochMetadata {
         require(msg.sender == minter, "!minter");
-        require(amount <= availableSupply - totalSupply, "Not enough tokens to be minted");
+        require(amount <= availableSupply - totalSupply(), "Not enough tokens to be minted");
         _mint(account, amount);
         emit SupplyMinted(msg.sender, account, currentEpoch, amount, getMintableSupply());
     }
@@ -171,13 +162,13 @@ contract SkyERC20 is ERC20WithSupply {
         if (now64() < currentEpochStartTime + epochDurations[epochDurations[currentEpoch]]) {
             return availableSupply;
         }
-        (uint256 availableSupply_, , ) = getUpdatedEpochMetadata();
+        (uint256 availableSupply_, , ) = _getUpdatedEpochMetadata();
         return availableSupply_;
     }
 
     /// @notice Get the amount of mintable tokens at the moment
     function getMintableSupply() public view returns (uint256) {
-        return getUnlockedSupply() - totalSupply;
+        return getUnlockedSupply() - totalSupply();
     }
 
     /// @dev Get the updated epoch metadata
