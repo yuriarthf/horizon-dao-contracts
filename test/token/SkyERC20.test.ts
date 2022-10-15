@@ -36,7 +36,7 @@ describe("SkyERC20 Unit Tests", () => {
 
   const oneMonth = 2630000; // 1 month in seconds
 
-  const maxSupply = addDecimalPoints(200000000);
+  const maxSupply = addDecimalPoints(100000000);
   const numberOfEpochs = 5;
   const initialEpochStartOffset = 86400; // 1 day in seconds
   let initialEpochStart: number;

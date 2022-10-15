@@ -7,8 +7,8 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice HorizonDAO Governance token
 /// @author HorizonDAO (Yuri Fernandes)
 contract SkyERC20 is ERC20 {
-    /// @dev Maximum supply of 200M tokens (with 18 decimal points)
-    uint256 public constant MAX_SUPPLY = 200_000_000 * 1e18;
+    /// @dev Maximum supply of 100M tokens (with 18 decimal points)
+    uint256 public constant MAX_SUPPLY = 100_000_000 * 1e18;
 
     /// @dev Address of the admin: Can set new admin, burner and minter addresses
     address public admin;
