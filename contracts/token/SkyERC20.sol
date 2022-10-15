@@ -48,8 +48,9 @@ contract SkyERC20 is ERC20 {
     modifier updateEpochMetadata() {
         if (
             (currentEpoch == 0 && now64() >= currentEpochStartTime) ||
-            (currentEpoch != numberOfEpochs &&
-                now64() >= currentEpochStartTime + epochDurations[epochDurations[currentEpoch]])
+            (currentEpoch > 0 &&
+                currentEpoch < numberOfEpochs &&
+                now64() >= currentEpochStartTime + epochDurations[currentEpoch - 1])
         ) {
             (availableSupply, currentEpoch, currentEpochStartTime) = _getUpdatedEpochMetadata();
         }
@@ -135,9 +136,9 @@ contract SkyERC20 is ERC20 {
     /// @param amount The amount of tokens to mint
     function mint(address account, uint256 amount) external updateEpochMetadata {
         require(msg.sender == minter, "!minter");
-        require(amount <= availableSupply - totalSupply(), "Not enough tokens to be minted");
+        require(amount <= availableSupply - totalSupply(), "Not enough available supply");
         _mint(account, amount);
-        emit SupplyMinted(msg.sender, account, currentEpoch, amount, getMintableSupply());
+        emit SupplyMinted(msg.sender, account, currentEpoch, amount, availableSupply - totalSupply());
     }
 
     /// @dev Burns an amount of tokens owned by the msg.sender
@@ -159,9 +160,6 @@ contract SkyERC20 is ERC20 {
     function getUnlockedSupply() public view returns (uint256) {
         if (currentEpoch == numberOfEpochs) return MAX_SUPPLY;
         if (now64() < currentEpochStartTime) return 0;
-        if (now64() < currentEpochStartTime + epochDurations[epochDurations[currentEpoch]]) {
-            return availableSupply;
-        }
         (uint256 availableSupply_, , ) = _getUpdatedEpochMetadata();
         return availableSupply_;
     }
@@ -189,11 +187,12 @@ contract SkyERC20 is ERC20 {
         _currentEpoch = currentEpoch;
         _currentEpochStartTime = currentEpochStartTime;
         if (_currentEpoch == 0) {
-            return (rampValues[0], 1, _currentEpochStartTime);
+            return (rampValues[0], uint8(1), _currentEpochStartTime);
         }
-        while (_currentEpochStartTime + epochDurations[_currentEpoch] <= now64()) {
-            _availableSupply += rampValues[++_currentEpoch];
-            _currentEpochStartTime += uint64(epochDurations[_currentEpoch]);
+        while (_currentEpochStartTime + epochDurations[_currentEpoch - 1] <= now64()) {
+            _availableSupply += rampValues[_currentEpoch - 1];
+            _currentEpochStartTime += epochDurations[_currentEpoch - 1];
+            ++_currentEpoch;
             if (_currentEpoch == numberOfEpochs) break;
         }
     }

@@ -17,7 +17,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
 
   // deploy SKY token
-  deploy("SkyERC20", {
+  await deploy("SkyERC20", {
     from: deployer,
     args: Object.values(skyErc20Args),
     log: true,
