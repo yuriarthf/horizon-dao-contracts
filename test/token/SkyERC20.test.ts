@@ -39,17 +39,17 @@ describe("SkyERC20 Unit Tests", () => {
   const maxSupply = addDecimalPoints(100000000);
   const numberOfEpochs = 5;
   const initialEpochStartOffset = 86400; // 1 day in seconds
-  let initialEpochStart: number;
+  let firstEpochStartTime: number;
   const epochDurations = [oneMonth, 2 * oneMonth, 3 * oneMonth, 4 * oneMonth];
   const rampValues = Array(5).fill(maxSupply.div(5));
 
-  function getUnlockedSupply(epoch: number): BigNumber {
+  function getAvailableSupply(epoch: number): BigNumber {
     if (epoch === 0) return BigNumber.from(0);
     return rampValues.slice(0, epoch).reduce((prev, curr) => prev.add(curr));
   }
 
   async function getMintableSupply(skyToken: SkyERC20, epoch: number): Promise<BigNumber> {
-    return getUnlockedSupply(epoch).sub(await skyToken.totalSupply());
+    return getAvailableSupply(epoch).sub(await skyToken.totalSupply());
   }
 
   before(async () => {
@@ -61,11 +61,11 @@ describe("SkyERC20 Unit Tests", () => {
     const currentBlock = await ethers.provider.getBlock(currentBlockNumber);
 
     // deploy skyERC20 contract
-    initialEpochStart = currentBlock.timestamp + initialEpochStartOffset;
+    firstEpochStartTime = currentBlock.timestamp + initialEpochStartOffset;
     const skyTokenFactory = <SkyERC20__factory>await ethers.getContractFactory("SkyERC20");
     skyToken = await skyTokenFactory
       .connect(deployer)
-      .deploy(admin.getAddress(), numberOfEpochs, initialEpochStart, epochDurations, rampValues);
+      .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, rampValues);
 
     // set burner and minter
     await skyToken.connect(admin).setBurner(burner.getAddress());
@@ -74,10 +74,10 @@ describe("SkyERC20 Unit Tests", () => {
 
   describe("Before the first epoch begins", () => {
     it("Unlocked supply is zero", async () => {
-      expect(await skyToken.getUnlockedSupply()).to.be.equal(BigNumber.from(0));
+      expect(await skyToken.availableSupply()).to.be.equal(BigNumber.from(0));
     });
     it("Mintable supply is zero", async () => {
-      expect(await skyToken.getMintableSupply()).to.be.equal(BigNumber.from(0));
+      expect(await skyToken.mintableSupply()).to.be.equal(BigNumber.from(0));
     });
     it("Revert if trying to mint more than current available supply", async () => {
       // should revert with "Not enough available supply" message
@@ -93,7 +93,7 @@ describe("SkyERC20 Unit Tests", () => {
         if (epoch < 1) throw new Error("Invalid epoch");
 
         // get epoch start time
-        let epochStartTime = initialEpochStart;
+        let epochStartTime = firstEpochStartTime;
         if (epoch >= 2) {
           epochDurations.slice(0, epoch - 1).forEach((duration) => (epochStartTime += duration));
         }
@@ -102,30 +102,33 @@ describe("SkyERC20 Unit Tests", () => {
         await ethers.provider.send("evm_mine", [epochStartTime]);
       });
       it("Check unlocked supply correctness", async () => {
-        // get unlocked supply
-        const unlockedSupply = getUnlockedSupply(epoch);
+        // get available supply
+        const availableSupply = getAvailableSupply(epoch);
 
         // assert value from contract
-        expect(await skyToken.connect(minter).getUnlockedSupply()).to.be.equal(unlockedSupply);
+        expect(await skyToken.connect(minter).availableSupply()).to.be.equal(availableSupply);
       });
       it("Mint random amount of available tokens", async () => {
         // get mintable supply
         const mintableSupplyBefore = await getMintableSupply(skyToken, epoch);
 
         // check if contract returns the same value as JS impl
-        expect(await skyToken.getMintableSupply()).to.be.equal(mintableSupplyBefore);
+        expect(await skyToken.mintableSupply()).to.be.equal(mintableSupplyBefore);
 
         // amount to mint
         const amount = randomUint256().mod(mintableSupplyBefore);
 
+        // get balance of user before
+        const userBalanceBefore = await skyToken.balanceOf(user.getAddress());
+
         // mint tokens to user
-        //await skyToken.connect(minter).mint(user.getAddress(), amount);
+        await skyToken.connect(minter).mint(user.getAddress(), amount);
 
         // check if user received the balance
-        //expect(await skyToken.balanceOf(user.getAddress())).to.be.equal(amount);
+        expect(await skyToken.balanceOf(user.getAddress())).to.be.equal(userBalanceBefore.add(amount));
 
         // check if mintable supply decreased by amount
-        //expect(await skyToken.getMintableSupply()).to.be.equal(mintableSupplyBefore.sub(amount));
+        expect(await skyToken.mintableSupply()).to.be.equal(mintableSupplyBefore.sub(amount));
       });
       it("Revert if trying to mint more than current available supply", async () => {
         // get mintable supply
