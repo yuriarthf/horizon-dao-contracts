@@ -187,10 +187,14 @@ contract SkyERC20 is ERC20 {
         _currentEpoch = currentEpoch;
         _currentEpochStartTime = currentEpochStartTime;
         if (_currentEpoch == 0) {
-            return (rampValues[0], uint8(1), _currentEpochStartTime);
+            if (now64() < _currentEpochStartTime) {
+                return (0, uint8(0), _currentEpochStartTime);
+            }
+            _availableSupply += rampValues[_currentEpoch];
+            ++_currentEpoch;
         }
         while (_currentEpochStartTime + epochDurations[_currentEpoch - 1] <= now64()) {
-            _availableSupply += rampValues[_currentEpoch - 1];
+            _availableSupply += rampValues[_currentEpoch];
             _currentEpochStartTime += epochDurations[_currentEpoch - 1];
             ++_currentEpoch;
             if (_currentEpoch == numberOfEpochs) break;
