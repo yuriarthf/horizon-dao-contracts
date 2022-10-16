@@ -249,7 +249,7 @@ describe("SkyERC20 Unit Tests", () => {
       });
       it("Number of epochs should be greater than zero", async () => {
         // Revert with reason string: "_numberOfEpochs == 0"
-        expect(
+        await expect(
           skyTokenFactory
             .connect(deployer)
             .deploy(admin.getAddress(), 0, firstEpochStartTime, epochDurations, rampValues),
@@ -260,7 +260,7 @@ describe("SkyERC20 Unit Tests", () => {
         const invalidRampValues = [...rampValues.slice(0, rampValues.length - 1)];
 
         // Revert with reason string: "_rampValues.length != _numberOfEpochs"
-        expect(
+        await expect(
           skyTokenFactory
             .connect(deployer)
             .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, invalidRampValues),
@@ -271,7 +271,7 @@ describe("SkyERC20 Unit Tests", () => {
         const invalidEpochDurations = [...epochDurations, 10];
 
         // Revert with reason string: "_epochDurations.length != _numberOfEpochs-1"
-        expect(
+        await expect(
           skyTokenFactory
             .connect(deployer)
             .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, invalidEpochDurations, rampValues),
@@ -284,7 +284,7 @@ describe("SkyERC20 Unit Tests", () => {
         invalidRampValues[numberOfEpochs - 1] = invalidRampValues[numberOfEpochs - 1].add(1);
 
         // Revert with reason string: "totalReleasedSupply != MAX_SUPPLY"
-        expect(
+        await expect(
           skyTokenFactory
             .connect(deployer)
             .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, invalidRampValues),
