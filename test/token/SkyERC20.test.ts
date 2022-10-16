@@ -29,6 +29,7 @@ describe("SkyERC20 Unit Tests", () => {
   let burner: Signer;
   let minter: Signer;
   let user: Signer;
+  let newAdmin: Signer;
 
   function addDecimalPoints(num: number, decimals = 18): BigNumber {
     return BigNumber.from(num).mul(BigNumber.from(10).pow(decimals));
@@ -49,12 +50,12 @@ describe("SkyERC20 Unit Tests", () => {
   }
 
   async function getMintableSupply(skyToken: SkyERC20, epoch: number): Promise<BigNumber> {
-    return getAvailableSupply(epoch).sub(await skyToken.totalSupply());
+    return getAvailableSupply(epoch).sub(await skyToken.mintedSupply());
   }
 
   before(async () => {
     // get deployer address
-    [deployer, admin, burner, minter, user] = await ethers.getSigners();
+    [deployer, admin, burner, minter, user, newAdmin] = await ethers.getSigners();
 
     // get current block timestamp
     const currentBlockNumber = await ethers.provider.getBlockNumber();
@@ -82,18 +83,65 @@ describe("SkyERC20 Unit Tests", () => {
     it("Revert if trying to mint more than current available supply", async () => {
       // should revert with "Not enough available supply" message
       await expect(skyToken.connect(minter).mint(user.getAddress(), BigNumber.from(1))).to.be.revertedWith(
-        "Not enough available supply",
+        "amount > mintableSupply",
       );
+    });
+    it("Supply release shouldn't have started", async () => {
+      // check contract flag
+      expect(await skyToken.supplyReleaseStarted()).to.be.false;
+    });
+
+    it("Try to set roles with an account other than admin should revert", async () => {
+      // set admin
+      await expect(skyToken.connect(user).setAdmin(user.getAddress())).to.be.revertedWith("!admin");
+
+      // set burner
+      await expect(skyToken.connect(user).setBurner(user.getAddress())).to.be.revertedWith("!admin");
+
+      // set minter
+      await expect(skyToken.connect(user).setMinter(user.getAddress())).to.be.revertedWith("!admin");
+    });
+    it("New admin, burner and minter should have different addresses than the previous ones", async () => {
+      // try setting new admin to the same address
+      await expect(skyToken.connect(admin).setAdmin(admin.getAddress())).to.be.revertedWith("admin == _admin");
+
+      // try setting new burner to the same address
+      await expect(skyToken.connect(admin).setBurner(burner.getAddress())).to.be.revertedWith("burner == _burner");
+
+      // try setting new minter to the same address
+      await expect(skyToken.connect(admin).setMinter(minter.getAddress())).to.be.revertedWith("minter == _minter");
+    });
+    it("Change admin, burner and minter should emit events", async () => {
+      // change to a new admin
+      await expect(skyToken.connect(admin).setAdmin(newAdmin.getAddress()))
+        .to.emit(skyToken, "NewAdmin")
+        .withArgs(await newAdmin.getAddress());
+
+      // change to a new burner
+      await expect(skyToken.connect(newAdmin).setBurner(newAdmin.getAddress()))
+        .to.emit(skyToken, "NewBurner")
+        .withArgs(await newAdmin.getAddress());
+
+      // change to a new minter
+      await expect(skyToken.connect(newAdmin).setMinter(newAdmin.getAddress()))
+        .to.emit(skyToken, "NewMinter")
+        .withArgs(await newAdmin.getAddress());
+
+      // give the roles back to the previous owners
+      await skyToken.connect(newAdmin).setAdmin(admin.getAddress());
+      await skyToken.connect(admin).setBurner(burner.getAddress());
+      await skyToken.connect(admin).setMinter(minter.getAddress());
     });
   });
   describe("Epoch testing", () => {
+    let epochStartTime: number;
     function epochTest(epoch: number) {
       before(async () => {
         // check if epoch is valid (epoch >= 1)
         if (epoch < 1) throw new Error("Invalid epoch");
 
         // get epoch start time
-        let epochStartTime = firstEpochStartTime;
+        epochStartTime = firstEpochStartTime;
         if (epoch >= 2) {
           epochDurations.slice(0, epoch - 1).forEach((duration) => (epochStartTime += duration));
         }
@@ -108,6 +156,22 @@ describe("SkyERC20 Unit Tests", () => {
         // assert value from contract
         expect(await skyToken.connect(minter).availableSupply()).to.be.equal(availableSupply);
       });
+      it("Check other epoch metadata", async () => {
+        // get epoch number
+        const epochNumber = await skyToken.currentEpoch();
+
+        // sanity check
+        expect(epoch).to.be.equal(epochNumber);
+
+        // get current epoch start time
+        const currentEpochStartTime = await skyToken.currentEpochStartTime();
+
+        // sanity check
+        expect(epochStartTime).to.be.equal(currentEpochStartTime);
+
+        // check if supply release started
+        expect(await skyToken.supplyReleaseStarted()).to.be.true;
+      });
       it("Mint random amount of available tokens", async () => {
         // get mintable supply
         const mintableSupplyBefore = await getMintableSupply(skyToken, epoch);
@@ -121,6 +185,9 @@ describe("SkyERC20 Unit Tests", () => {
         // get balance of user before
         const userBalanceBefore = await skyToken.balanceOf(user.getAddress());
 
+        // try to mint with user -- should revert
+        await expect(skyToken.mint(user.getAddress(), amount)).to.be.revertedWith("!minter");
+
         // mint tokens to user
         await skyToken.connect(minter).mint(user.getAddress(), amount);
 
@@ -129,6 +196,28 @@ describe("SkyERC20 Unit Tests", () => {
 
         // check if mintable supply decreased by amount
         expect(await skyToken.mintableSupply()).to.be.equal(mintableSupplyBefore.sub(amount));
+      });
+      it("Burner can burn tokens if it has custody over it", async () => {
+        // get totalSupplyBefore
+        const totalSupplyBefore = await skyToken.totalSupply();
+
+        // get balance for user
+        const userBalance = await skyToken.balanceOf(user.getAddress());
+
+        // get random amount to send to burner
+        const amount = randomUint256().mod(userBalance);
+
+        // try to burn amount with user -- should revert
+        await expect(skyToken.burn(amount)).to.be.revertedWith("!burner");
+
+        // send amount to burner
+        await skyToken.connect(user).transfer(burner.getAddress(), amount);
+
+        // burn amount
+        await skyToken.connect(burner).burn(amount);
+
+        // check if totalSupply decreased by amount
+        expect(await skyToken.totalSupply()).to.be.equal(totalSupplyBefore.sub(amount));
       });
       it("Revert if trying to mint more than current available supply", async () => {
         // get mintable supply
@@ -141,24 +230,66 @@ describe("SkyERC20 Unit Tests", () => {
 
         // should revert with "Not enough available supply" message
         await expect(skyToken.connect(minter).mint(user.getAddress(), amount)).to.be.revertedWith(
-          "Not enough available supply",
+          "amount > mintableSupply",
         );
       });
     }
-    describe("First epoch begins", () => {
-      epochTest(1);
+
+    [...Array(numberOfEpochs).keys()].forEach((value) => {
+      describe(`Epoch ${value + 1} test`, () => {
+        epochTest(value + 1);
+      });
     });
-    describe("Second epoch begins", () => {
-      epochTest(2);
-    });
-    describe("Third epoch begins", () => {
-      epochTest(3);
-    });
-    describe("Forth epoch begins", () => {
-      epochTest(4);
-    });
-    describe("Fifth epoch begins", () => {
-      epochTest(5);
+
+    describe("Test constructor args requirements", () => {
+      let skyTokenFactory: SkyERC20__factory;
+      before(async () => {
+        // get SkyERC20 factory
+        skyTokenFactory = <SkyERC20__factory>await ethers.getContractFactory("SkyERC20");
+      });
+      it("Number of epochs should be greater than zero", async () => {
+        // Revert with reason string: "_numberOfEpochs == 0"
+        expect(
+          skyTokenFactory
+            .connect(deployer)
+            .deploy(admin.getAddress(), 0, firstEpochStartTime, epochDurations, rampValues),
+        ).to.be.revertedWith("_numberOfEpochs == 0");
+      });
+      it("Ramp values length should be equal to number of epochs", async () => {
+        // get invalid ramp values
+        const invalidRampValues = [...rampValues.slice(0, rampValues.length - 1)];
+
+        // Revert with reason string: "_rampValues.length != _numberOfEpochs"
+        expect(
+          skyTokenFactory
+            .connect(deployer)
+            .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, invalidRampValues),
+        ).to.be.revertedWith("_rampValues.length != _numberOfEpochs");
+      });
+      it("Epoch durations should only be provided for n - 1 epochs", async () => {
+        // get invalid epoch durations
+        const invalidEpochDurations = [...epochDurations, 10];
+
+        // Revert with reason string: "_epochDurations.length != _numberOfEpochs-1"
+        expect(
+          skyTokenFactory
+            .connect(deployer)
+            .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, invalidEpochDurations, rampValues),
+        ).to.be.revertedWith("_epochDurations.length != _numberOfEpochs-1");
+      });
+
+      it("Sum of ramp values should be equal to MAX_SUPPLY", async () => {
+        // get invalid ramp values
+        const invalidRampValues = [...rampValues];
+        invalidRampValues[numberOfEpochs - 1] = invalidRampValues[numberOfEpochs - 1].add(1);
+
+        // Revert with reason string: "totalReleasedSupply != MAX_SUPPLY"
+        expect(
+          skyTokenFactory
+            .connect(deployer)
+            .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, invalidRampValues),
+        ).to.be.revertedWith("totalReleasedSupply != MAX_SUPPLY");
+      });
     });
   });
 });

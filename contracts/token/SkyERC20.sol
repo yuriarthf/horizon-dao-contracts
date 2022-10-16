@@ -32,6 +32,9 @@ contract SkyERC20 is ERC20 {
     /// @dev Values to increment the availableSupply at the end of an epoch
     uint256[] public rampValues;
 
+    /// @dev Keeps track of minted supply
+    uint256 public mintedSupply;
+
     /// @dev Checks if msg.sender is the admin
     modifier onlyAdmin() {
         require(msg.sender == admin, "!admin");
@@ -69,16 +72,16 @@ contract SkyERC20 is ERC20 {
         uint64[] memory _epochDurations,
         uint256[] memory _rampValues
     ) ERC20("HorizonDAO Token", "SKY") {
-        require(_numberOfEpochs >= 1, "Should have at least 1 epoch");
-        require(_rampValues.length == _numberOfEpochs, "Number of ramps should be equal to epochs");
-        require(_epochDurations.length == _numberOfEpochs - 1, "Epoch durations should be provided for n-1 epochs");
+        require(_numberOfEpochs >= 1, "_numberOfEpochs == 0");
+        require(_rampValues.length == _numberOfEpochs, "_rampValues.length != _numberOfEpochs");
+        require(_epochDurations.length == _numberOfEpochs - 1, "_epochDurations.length != _numberOfEpochs-1");
         uint256 totalReleasedSupply;
         for (uint256 i = 0; i < _rampValues.length; i++) {
             totalReleasedSupply += _rampValues[i];
             rampValues.push(_rampValues[i]);
             if (i != _rampValues.length - 1) epochDurations.push(_epochDurations[i]);
         }
-        require(totalReleasedSupply == MAX_SUPPLY, "Sum of ramps should be equal to MAX_SUPPLY");
+        require(totalReleasedSupply == MAX_SUPPLY, "totalReleasedSupply != MAX_SUPPLY");
         // set the first epoch start time
         firstEpochStartTime = _firstEpochStartTime;
 
@@ -107,7 +110,7 @@ contract SkyERC20 is ERC20 {
 
     /// @notice Get the amount of mintable tokens at the moment
     function mintableSupply() public view returns (uint256) {
-        return availableSupply() - totalSupply();
+        return availableSupply() - mintedSupply;
     }
 
     /// @notice Get the current timestamp converted to uint64
@@ -123,6 +126,7 @@ contract SkyERC20 is ERC20 {
     /// @dev Set new admin role
     /// @param _admin New admin address
     function setAdmin(address _admin) external onlyAdmin {
+        require(admin != _admin, "admin == _admin");
         admin = _admin;
         emit NewAdmin(_admin);
     }
@@ -130,6 +134,7 @@ contract SkyERC20 is ERC20 {
     /// @dev Set new burner role
     /// @param _burner New burner address
     function setBurner(address _burner) external onlyAdmin {
+        require(burner != _burner, "burner == _burner");
         burner = _burner;
         emit NewBurner(_burner);
     }
@@ -137,6 +142,7 @@ contract SkyERC20 is ERC20 {
     /// @dev Set new minter role
     /// @param _minter New minter address
     function setMinter(address _minter) external onlyAdmin {
+        require(minter != _minter, "minter == _minter");
         minter = _minter;
         emit NewMinter(_minter);
     }
@@ -148,9 +154,10 @@ contract SkyERC20 is ERC20 {
     function mint(address account, uint256 amount) external {
         require(msg.sender == minter, "!minter");
         (uint8 _currentEpoch, , uint256 _availableSupply) = _getEpochInfo();
-        uint256 _mintableSupply = _availableSupply - totalSupply();
-        require(amount <= _mintableSupply, "Not enough available supply");
+        uint256 _mintableSupply = _availableSupply - mintedSupply;
+        require(amount <= _mintableSupply, "amount > mintableSupply");
         _mint(account, amount);
+        mintedSupply += amount;
         emit SupplyMinted(msg.sender, account, _currentEpoch, amount, _mintableSupply);
     }
 
