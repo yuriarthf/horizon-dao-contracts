@@ -26,8 +26,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     bytes32 public goldMerkleRoot;
     bytes32 public silverMerkleRoot;
 
-    mapping(address => bool) goldClaimed;
-    mapping(address => bool) silverClaimed;
+    mapping(address => bool) public goldClaimed;
+    mapping(address => bool) public silverClaimed;
 
     event GoldMerkleRootSet(address indexed _admin, bytes32 _root);
     event SilverMerkleRootSet(address indexed _admin, bytes32 _root);
