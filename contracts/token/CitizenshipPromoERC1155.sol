@@ -6,6 +6,11 @@ import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
+/// @title Horizon DAO Citizenship Promotional NFTs
+/// @author Horizon DAO (Yuri Fernandes)
+/// @notice Promotional NFTs that will have utility added during
+///		Horizon DAO development stages, Citizenship NFT holder will
+///		also be eligible to various SKY (Governance token) airdrops
 contract CitizenshipPromoERC1155 is RoyalERC1155 {
     using Strings for uint256;
 
@@ -15,26 +20,49 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         GOLD
     }
 
+    /// @dev The maximum purchaseable supply
+    /// 	does not count with the privileged citizenship claims
     uint256 public constant PURCHASEABLE_SUPPLY = 10550;
+
+    /// @dev Represents 100% chance, there will be 3 Citizenship collection
+    ///		with decreasing chances to be minted during purchases
+    ///		the total chances should sum to MAX_CHANCE
     uint256 public constant MAX_CHANCE = 10000;
+
+    /// @dev The unit price to purchase a citizenship NFT from a random collection
     uint256 public immutable tokenUnitPrice;
 
+    /// @dev Amount of NFTs that have been purchased so far
     uint256 public purchasedAmount;
 
+    /// @dev Chances of getting a citizenship of each collection
     mapping(Citizenship => uint256) public chances;
 
+    /// @dev Merkle root used to whitelist addresses to claim gold citizenship (3 addresses - founders)
     bytes32 public goldMerkleRoot;
+
+    /// @dev Merkle root used to whitelist addresses to claim gold citizenship (10 addresses)
     bytes32 public silverMerkleRoot;
 
+    /// @dev Used to mark a privileged gold citizenship as claimed
     mapping(address => bool) public goldClaimed;
+
+    /// @dev Used to mark a privileged silver citizenship as claimed
     mapping(address => bool) public silverClaimed;
 
+    /// @dev Emitted when the privileged gold merkle root is set (only possible one time)
     event GoldMerkleRootSet(address indexed _admin, bytes32 _root);
+
+    /// @dev Emitted when the privileged silver merkle root is set (only possible one time)
     event SilverMerkleRootSet(address indexed _admin, bytes32 _root);
+
+    /// @dev Emitted when a new base image URI is set for the collections
     event NewImageUri(address indexed _admin, string _uri);
 
+    /// @dev Emitted when ethers are withdrawn from the contract
     event Withdrawal(address indexed _admin, address indexed _to, uint256 _amount);
 
+    /// @dev Emitted when an amount of citizenship NFTs are claimed
     event CitizenshipClaimed(
         address indexed _by,
         Citizenship indexed _citizenship,
@@ -42,6 +70,12 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         uint256 _amount
     );
 
+    /// @dev constructor to initialize CitizenshipPromoERC1155 contract
+    /// @param _imageUri Base image URI
+    /// @param _admin Adminstrative address, can execute various configuration related functions
+    /// @param _owner Should be an EOA, will have rights over OpenSea collection configuration
+    /// @param _tokenUnitPrice Price per random NFT claim
+    /// @param _chances Array with the chances of getting a citizenship for each collection
     constructor(
         string memory _imageUri,
         address _admin,
@@ -62,23 +96,31 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit NewImageUri(msg.sender, _imageUri);
     }
 
+    /// @dev Set Gold merkle root (whitelist for privileged gold citizenship claims)
+    /// @param _root Merkle root
     function setGoldMerkleRoot(bytes32 _root) external onlyAdmin {
         require(goldMerkleRoot == bytes32(0), "Merkle root already set");
         goldMerkleRoot = _root;
         emit GoldMerkleRootSet(msg.sender, _root);
     }
 
+    /// @dev Set Silver merkle root (whitelist for privileged gold citizenship claims)
+    /// @param _root Merkle root
     function setSilverMerkleRoot(bytes32 _root) external onlyAdmin {
         require(silverMerkleRoot == bytes32(0), "Merkle root already set");
         silverMerkleRoot = _root;
         emit SilverMerkleRootSet(msg.sender, _root);
     }
 
+    /// @dev Set new base image URI for collections
+    /// @param _uri Base image URI
     function setImageBaseURI(string memory _uri) external onlyAdmin {
         _setURI(_uri);
         emit NewImageUri(msg.sender, _uri);
     }
 
+    /// @dev Used for privileged gold citizenship claims
+    /// @param _proof Merkle proof for the executing address
     function claimGold(bytes32[] memory _proof) external {
         require(MerkleProof.verify(_proof, goldMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "Access Denied");
         require(!goldClaimed[msg.sender], "Already claimed");
@@ -86,6 +128,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit CitizenshipClaimed(msg.sender, Citizenship.GOLD, true, 1);
     }
 
+    /// @dev Used for privileged silver citizenship claims
+    /// @param _proof Merkle proof for the executing address
     function claimSilver(bytes32[] memory _proof) external {
         require(MerkleProof.verify(_proof, goldMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "Access Denied");
         require(!goldClaimed[msg.sender], "Already claimed");
@@ -93,6 +137,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit CitizenshipClaimed(msg.sender, Citizenship.GOLD, true, 1);
     }
 
+    /// @notice Purchase citizenship NFTs randomly from the 3 collections (Bronze, Silver and Gold)
+    /// @param _amount Amount to purchase
     function purchase(uint256 _amount) external payable {
         uint256 totalPrice = _amount * tokenUnitPrice;
         require(msg.value >= totalPrice, "Not enough ethers");
@@ -116,10 +162,14 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
             _mint(msg.sender, i + 1, amounts[i], bytes(""));
             emit CitizenshipClaimed(msg.sender, Citizenship(i + 1), false, amounts[i]);
         }
+        purchasedAmount += _amount;
+
         uint256 surplus = msg.value - totalPrice;
         if (surplus > 0) _sendValue(msg.sender, surplus);
     }
 
+    /// @dev Withdraw all ethers from contract
+    /// @param _to Address to send the funds
     function withdraw(address _to) external onlyAdmin {
         uint256 etherBalance = address(this).balance;
         require(etherBalance > 0, "No ethers to withdraw");
@@ -127,10 +177,16 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit Withdrawal(msg.sender, _to, etherBalance);
     }
 
+    /// @notice Returns the Base64 encoded metadata for a given collection
+    /// @param _id Collection ID
+    /// @return Base64 encoded metadata
     function uri(uint256 _id) public view override returns (string memory) {
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(tokenMetadata(_id)))));
     }
 
+    /// @notice Returns the stringified metadata JSON for a given collection
+    /// @param _id Collection ID
+    /// @return Stringified metadata JSON
     function tokenMetadata(uint256 _id) public view returns (string memory) {
         return
             string(
@@ -145,6 +201,9 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
             );
     }
 
+    /// @notice Get collection name
+    /// @param _id Collection ID
+    /// @return Collection name
     function tokenName(uint256 _id) public pure returns (string memory) {
         require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
         if (_id == uint256(Citizenship.BRONZE)) return "Bronze Citizenship";
@@ -152,6 +211,9 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         return "Gold Citizenship";
     }
 
+    /// @notice Get collection description
+    /// @param _id Collection ID
+    /// @return Collection description
     function tokenDescription(uint256 _id) public pure returns (string memory) {
         require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
         if (_id == uint256(Citizenship.BRONZE)) return "";
@@ -159,10 +221,16 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         return "";
     }
 
+    /// @notice Get the image URI for a given collection
+    /// @param _id Collection ID
+    /// @return Image URI
     function imageURI(uint256 _id) public view returns (string memory) {
         return string(abi.encodePacked(super.uri(uint256(0)), _id.toString()));
     }
 
+    /// @dev Utility function to send an amount of ethers to a given address
+    /// @param _to Address to send ethers
+    /// @param _amount Amount of ethers to send
     function _sendValue(address _to, uint256 _amount) internal {
         (bool success, ) = _to.call{ value: _amount }("");
         require(success, "Failed sending ethers");
