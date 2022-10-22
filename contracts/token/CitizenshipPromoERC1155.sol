@@ -22,7 +22,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
 
     /// @dev The maximum purchaseable supply
     /// 	does not count with the privileged citizenship claims
-    uint256 public constant PURCHASEABLE_SUPPLY = 10550;
+    uint256 public constant PURCHASABLE_SUPPLY = 10550;
 
     /// @dev Represents 100% chance, there will be 3 Citizenship collection
     ///		with decreasing chances to be minted during purchases
@@ -142,7 +142,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     function purchase(uint256 _amount) external payable {
         uint256 totalPrice = _amount * tokenUnitPrice;
         require(msg.value >= totalPrice, "Not enough ethers");
-        require(purchasedAmount + _amount <= PURCHASEABLE_SUPPLY, "_amount is to big");
+        require(purchasedAmount + _amount <= PURCHASABLE_SUPPLY, "_amount is to big");
         uint256 magicValue = uint256(
             keccak256(abi.encodePacked(msg.sender, block.timestamp, _amount, purchasedAmount))
         );
