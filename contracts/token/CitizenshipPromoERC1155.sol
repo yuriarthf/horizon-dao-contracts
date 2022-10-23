@@ -27,7 +27,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @dev Represents 100% chance, there will be 3 Citizenship collection
     ///     with decreasing chances to be minted during purchases
     ///     the total chances should sum to MAX_CHANCE
-    uint256 public constant MAX_CHANCE = 10000;
+    uint256 public constant MAX_CHANCE = 1_000;
 
     /// @dev The unit price to purchase a citizenship NFT from a random collection
     uint256 public immutable tokenUnitPrice;
@@ -35,8 +35,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @dev Amount of NFTs that have been purchased so far
     uint256 public purchasedAmount;
 
-    /// @dev Chances of getting a citizenship of each collection
-    mapping(Citizenship => uint256) public chances;
+    /// @dev Calculated pseudo-random number should fall in range to acquire a certain citizenship
+    mapping(Citizenship => uint256) public thresholds;
 
     /// @dev Merkle root used to whitelist addresses to claim gold citizenship
     bytes32 public goldMerkleRoot;
@@ -83,15 +83,14 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         uint256 _tokenUnitPrice,
         uint256[3] memory _chances
     ) RoyalERC1155(_imageUri, _admin, _owner) {
-        uint256 totalChances;
         for (uint8 i = 0; i < _chances.length; i++) {
             if (i > 0) {
                 require(_chances[i - 1] >= _chances[i], "Invalid _chance array");
+                thresholds[Citizenship(i + 1)] += thresholds[Citizenship(i)];
             }
-            chances[Citizenship(i + 1)] = _chances[i];
-            totalChances += _chances[i];
+            thresholds[Citizenship(i + 1)] += _chances[i];
         }
-        require(totalChances == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
+        require(thresholds[Citizenship.GOLD] == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
         tokenUnitPrice = _tokenUnitPrice;
         emit NewImageUri(msg.sender, _imageUri);
     }
@@ -151,8 +150,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         uint256[3] memory amounts;
         for (uint256 i = 0; i < _amount; i++) {
             chance = magicValue % MAX_CHANCE;
-            if (chance < chances[Citizenship.BRONZE]) ++amounts[0];
-            else if (chance < chances[Citizenship.SILVER]) ++amounts[1];
+            if (chance < thresholds[Citizenship.BRONZE]) ++amounts[0];
+            else if (chance < thresholds[Citizenship.SILVER]) ++amounts[1];
             else ++amounts[2];
             magicValue = uint256(keccak256(abi.encodePacked(magicValue / MAX_CHANCE)));
         }

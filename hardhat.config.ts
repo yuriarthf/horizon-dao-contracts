@@ -182,6 +182,10 @@ const config: HardhatUserConfig = {
     deployer: {
       default: 0,
     },
+    horizon_multisig: {
+      mainnet: "",
+      goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
+    },
   },
   typechain: {
     target: "ethers-v5",
