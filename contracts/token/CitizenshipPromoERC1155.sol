@@ -173,7 +173,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     function withdraw(address _to) external onlyAdmin {
         uint256 etherBalance = address(this).balance;
         require(etherBalance > 0, "No ethers to withdraw");
-        _sendValue(msg.sender, etherBalance);
+        _sendValue(_to, etherBalance);
         emit Withdrawal(msg.sender, _to, etherBalance);
     }
 
