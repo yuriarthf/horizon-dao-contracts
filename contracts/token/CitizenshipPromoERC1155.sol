@@ -9,8 +9,8 @@ import { RoyalERC1155 } from "./RoyalERC1155.sol";
 /// @title Horizon DAO Citizenship Promotional NFTs
 /// @author Horizon DAO (Yuri Fernandes)
 /// @notice Promotional NFTs that will have utility added during
-///		Horizon DAO development stages, Citizenship NFT holder will
-///		also be eligible to various SKY (Governance token) airdrops
+///     Horizon DAO development stages, Citizenship NFT holder will
+///     also be eligible to various SKY (Governance token) airdrops
 contract CitizenshipPromoERC1155 is RoyalERC1155 {
     using Strings for uint256;
 
@@ -21,12 +21,12 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     }
 
     /// @dev The maximum purchaseable supply
-    /// 	does not count with the whitelisted citizenship claims
+    ///     does not count with the whitelisted citizenship claims
     uint256 public constant PURCHASABLE_SUPPLY = 10550;
 
     /// @dev Represents 100% chance, there will be 3 Citizenship collection
-    ///		with decreasing chances to be minted during purchases
-    ///		the total chances should sum to MAX_CHANCE
+    ///     with decreasing chances to be minted during purchases
+    ///     the total chances should sum to MAX_CHANCE
     uint256 public constant MAX_CHANCE = 10000;
 
     /// @dev The unit price to purchase a citizenship NFT from a random collection
