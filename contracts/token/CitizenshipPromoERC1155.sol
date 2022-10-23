@@ -196,7 +196,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
                     ", 'description': ",
                     collectionDescription(_id),
                     ", 'image: '",
-                    imageURI(_id)
+                    imageURI(_id),
+                    " }"
                 )
             );
     }
