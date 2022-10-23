@@ -21,7 +21,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     }
 
     /// @dev The maximum purchaseable supply
-    /// 	does not count with the privileged citizenship claims
+    /// 	does not count with the whitelisted citizenship claims
     uint256 public constant PURCHASABLE_SUPPLY = 10550;
 
     /// @dev Represents 100% chance, there will be 3 Citizenship collection
@@ -38,22 +38,22 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @dev Chances of getting a citizenship of each collection
     mapping(Citizenship => uint256) public chances;
 
-    /// @dev Merkle root used to whitelist addresses to claim gold citizenship (3 addresses - founders)
+    /// @dev Merkle root used to whitelist addresses to claim gold citizenship
     bytes32 public goldMerkleRoot;
 
-    /// @dev Merkle root used to whitelist addresses to claim gold citizenship (10 addresses)
+    /// @dev Merkle root used to whitelist addresses to claim gold citizenshi
     bytes32 public silverMerkleRoot;
 
-    /// @dev Used to mark a privileged gold citizenship as claimed
+    /// @dev Used to mark a gold citizenship as claimed from a whitelisted address
     mapping(address => bool) public goldClaimed;
 
-    /// @dev Used to mark a privileged silver citizenship as claimed
+    /// @dev Used to mark a silver citizenship as claimed for a whitelisted address
     mapping(address => bool) public silverClaimed;
 
-    /// @dev Emitted when the privileged gold merkle root is set (only possible one time)
+    /// @dev Emitted when gold merkle root is set (only possible one time)
     event GoldMerkleRootSet(address indexed _admin, bytes32 _root);
 
-    /// @dev Emitted when the privileged silver merkle root is set (only possible one time)
+    /// @dev Emitted when silver merkle root is set (only possible one time)
     event SilverMerkleRootSet(address indexed _admin, bytes32 _root);
 
     /// @dev Emitted when a new base image URI is set for the collections
@@ -66,7 +66,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     event CitizenshipClaimed(
         address indexed _by,
         Citizenship indexed _citizenship,
-        bool indexed _isPrivilege,
+        bool indexed _isWhitelist,
         uint256 _amount
     );
 
@@ -96,7 +96,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit NewImageUri(msg.sender, _imageUri);
     }
 
-    /// @dev Set Gold merkle root (whitelist for privileged gold citizenship claims)
+    /// @dev Set Gold merkle root (whitelist for gold citizenship claims)
     /// @param _root Merkle root
     function setGoldMerkleRoot(bytes32 _root) external onlyAdmin {
         require(goldMerkleRoot == bytes32(0), "Merkle root already set");
@@ -104,7 +104,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit GoldMerkleRootSet(msg.sender, _root);
     }
 
-    /// @dev Set Silver merkle root (whitelist for privileged gold citizenship claims)
+    /// @dev Set Silver merkle root (whitelist for gold citizenship claims)
     /// @param _root Merkle root
     function setSilverMerkleRoot(bytes32 _root) external onlyAdmin {
         require(silverMerkleRoot == bytes32(0), "Merkle root already set");
@@ -119,7 +119,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit NewImageUri(msg.sender, _uri);
     }
 
-    /// @dev Used for privileged gold citizenship claims
+    /// @dev Used for whitelisted gold citizenship claims
     /// @param _proof Merkle proof for the executing address
     function claimGold(bytes32[] memory _proof) external {
         require(MerkleProof.verify(_proof, goldMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "Access Denied");
@@ -128,7 +128,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         emit CitizenshipClaimed(msg.sender, Citizenship.GOLD, true, 1);
     }
 
-    /// @dev Used for privileged silver citizenship claims
+    /// @dev Used for whitelisted silver citizenship claims
     /// @param _proof Merkle proof for the executing address
     function claimSilver(bytes32[] memory _proof) external {
         require(MerkleProof.verify(_proof, goldMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "Access Denied");

@@ -11,7 +11,7 @@ import ethers from "ethers";
 import type { Address } from "../../types";
 
 /**
- * @dev Used to get the privileged citizenship merkle roots (silver and gold),
+ * @dev Used to get the whitelisted citizenships merkle roots (silver and gold),
  *      to be set in the CitizenshipPromoERC1155 contract.
  */
 export class CitizenshipTree {
@@ -20,7 +20,7 @@ export class CitizenshipTree {
 
   /**
    * @dev Build citizenship merkle tree
-   * @param accounts Privileged accounts
+   * @param accounts Whitelisted accounts
    */
   constructor(accounts: Address[]) {
     this.accounts = accounts;
@@ -29,7 +29,7 @@ export class CitizenshipTree {
   }
 
   /**
-   * @dev Get citizenship merkle tree leaves (privileged addresses)
+   * @dev Get citizenship merkle tree leaves (whitelisted addresses)
    */
   get leaves() {
     return this.accounts.map((address) => ethers.utils.keccak256(address));
