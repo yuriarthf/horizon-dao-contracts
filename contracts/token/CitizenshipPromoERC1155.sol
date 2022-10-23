@@ -83,6 +83,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         uint256 _tokenUnitPrice,
         uint256[3] memory _chances
     ) RoyalERC1155(_imageUri, _admin, _owner) {
+        require(_admin != address(0), "!admin");
         for (uint8 i = 0; i < _chances.length; i++) {
             if (i > 0) {
                 require(_chances[i - 1] >= _chances[i], "Invalid _chance array");
