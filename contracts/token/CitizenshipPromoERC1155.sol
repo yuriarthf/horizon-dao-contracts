@@ -191,13 +191,13 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         return
             string(
                 abi.encodePacked(
-                    "{ 'name': '",
+                    '{ "name": "',
                     collectionName(_id),
-                    "', 'description': '",
+                    '", "description": "',
                     collectionDescription(_id),
-                    "', 'image: '",
+                    '", "image": "',
                     imageURI(_id),
-                    "' }"
+                    '" }'
                 )
             );
     }
