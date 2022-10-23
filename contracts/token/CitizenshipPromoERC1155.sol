@@ -187,14 +187,14 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @notice Returns the stringified metadata JSON for a given collection
     /// @param _id Collection ID
     /// @return Stringified metadata JSON
-    function tokenMetadata(uint256 _id) public view returns (string memory) {
+    function collectionMetadata(uint256 _id) public view returns (string memory) {
         return
             string(
                 abi.encodePacked(
                     "{ 'name': ",
-                    tokenName(_id),
+                    collectionName(_id),
                     ", 'description': ",
-                    tokenDescription(_id),
+                    collectionDescription(_id),
                     ", 'image: '",
                     imageURI(_id)
                 )
@@ -204,7 +204,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @notice Get collection name
     /// @param _id Collection ID
     /// @return Collection name
-    function tokenName(uint256 _id) public pure returns (string memory) {
+    function collectionName(uint256 _id) public pure returns (string memory) {
         require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
         if (_id == uint256(Citizenship.BRONZE)) return "Bronze Citizenship";
         if (_id == uint256(Citizenship.GOLD)) return "Silver Citizenship";
@@ -214,7 +214,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @notice Get collection description
     /// @param _id Collection ID
     /// @return Collection description
-    function tokenDescription(uint256 _id) public pure returns (string memory) {
+    function collectionDescription(uint256 _id) public pure returns (string memory) {
         require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
         if (_id == uint256(Citizenship.BRONZE)) return "";
         if (_id == uint256(Citizenship.GOLD)) return "";
