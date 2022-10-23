@@ -151,9 +151,9 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         uint256[3] memory amounts;
         for (uint256 i = 0; i < _amount; i++) {
             chance = magicValue % MAX_CHANCE;
-            if (chance < chances[Citizenship.BRONZE]) amounts[0]++;
-            else if (chance < chances[Citizenship.SILVER]) amounts[1]++;
-            else amounts[2]++;
+            if (chance < chances[Citizenship.BRONZE]) ++amounts[0];
+            else if (chance < chances[Citizenship.SILVER]) ++amounts[1];
+            else ++amounts[2];
             magicValue = uint256(keccak256(abi.encodePacked(magicValue / MAX_CHANCE)));
         }
 
