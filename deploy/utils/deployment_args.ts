@@ -3,13 +3,17 @@
 // Parse ethers
 import ethers from "ethers";
 
+// types
+import { Address } from "../../test/types";
+
 // Common args
 const horizonMultisig: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
 };
 
-// CitizenshipERC1155
+/*************** CitizenshipERC1155 ***************/
+// Constructor args
 export function citizenshipErc1155Args(network: string) {
   return {
     imageUri: "", // Image base URI, will be suffixed by collection ID (should return the collection image)
@@ -20,7 +24,14 @@ export function citizenshipErc1155Args(network: string) {
   };
 }
 
-// SKYERC20
+// Gold whitelist
+export const goldWhitelist: Address[] = [];
+
+// Silver whitelist
+export const silverWhitelist: Address[] = [];
+
+/*************** SkyERC20 ***************/
+// Constructor args
 export const skyErc20Args = {
   admin: "", // HorizonDAO multisig wallet address
   numberOfEpochs: "", // Number of token releasing epochs (n)
