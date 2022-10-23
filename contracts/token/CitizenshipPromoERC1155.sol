@@ -159,8 +159,8 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
 
         for (uint8 i = 0; i < amounts.length; i++) {
             if (amounts[i] == 0) continue;
-            _mint(msg.sender, i + 1, amounts[i], bytes(""));
-            emit CitizenshipClaimed(msg.sender, Citizenship(i + 1), false, amounts[i]);
+            _mint(msg.sender, i, amounts[i], bytes(""));
+            emit CitizenshipClaimed(msg.sender, Citizenship(i), false, amounts[i]);
         }
         purchasedAmount += _amount;
 
