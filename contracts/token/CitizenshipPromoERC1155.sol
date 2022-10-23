@@ -181,7 +181,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Base64 encoded metadata
     function uri(uint256 _id) public view override returns (string memory) {
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(tokenMetadata(_id)))));
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(collectionMetadata(_id)))));
     }
 
     /// @notice Returns the stringified metadata JSON for a given collection
