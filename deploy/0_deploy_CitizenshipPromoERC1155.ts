@@ -20,17 +20,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
 
   // deploy SKY token
+  let deployResult;
+  const constructorArgs = citizenshipErc1155Args(hre.network.name);
   if (process.env.CONFIG_CITIZENSHIP_CONTRACT) {
-    const constructorArgs = citizenshipErc1155Args(hre.network.name);
-    constructorArgs["admin"] = await deployer.getAddress();
-    const deployResult = await deploy("CitizenshipPromoERC1155", {
+    constructorArgs["admin"] = deployer;
+    deployResult = await deploy("CitizenshipPromoERC1155", {
       from: deployer,
-      args: Object.values(citizenshipErc1155Args(hre.network.name)),
+      args: Object.values(constructorArgs),
       log: true,
     });
 
     // get deployed contract
-    const citizenshipNft = await hre.ethers.getContractAt("CitizenshipPromoERC1155", deployResult.address, deployer);
+    const citizenshipNft = await hre.ethers.getContractAt("CitizenshipPromoERC1155", deployResult.address);
 
     // Build merkle trees
     const silverMerkleTree = new CitizenshipTree(silverWhitelist);
@@ -43,10 +44,21 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Transfer admin to multisig
     await citizenshipNft.setAdmin(citizenshipErc1155Args(hre.network.name).admin);
   } else {
-    await deploy("CitizenshipPromoERC1155", {
+    deployResult = await deploy("CitizenshipPromoERC1155", {
       from: deployer,
-      args: Object.values(citizenshipErc1155Args(hre.network.name)),
+      args: Object.values(constructorArgs),
       log: true,
+    });
+  }
+
+  if (deployResult.newlyDeployed) {
+    // Wait 5 confirmations
+    await hre.ethers.provider.waitForTransaction(<string>deployResult.transactionHash, 5);
+
+    // Verify contract
+    await hre.run("verify:verify", {
+      address: deployResult.address,
+      constructorArguments: Object.values(constructorArgs),
     });
   }
 };

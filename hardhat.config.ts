@@ -117,6 +117,7 @@ const config: HardhatUserConfig = {
     goerli: {
       url: get_endpoint_url("goerli"),
       accounts: get_accounts(process.env.P_KEY5, process.env.MNEMONIC5),
+      gas: 50000,
     },
   },
 
@@ -232,7 +233,7 @@ function get_endpoint_url(network_name: string) {
   switch (network_name) {
     case "mainnet":
     case "goerli":
-      return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY};`;
+      return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
     default:
       throw Error("Invalid network");
   }

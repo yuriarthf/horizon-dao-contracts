@@ -87,9 +87,9 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
         for (uint8 i = 0; i < _chances.length; i++) {
             if (i > 0) {
                 require(_chances[i - 1] >= _chances[i], "Invalid _chance array");
-                thresholds[Citizenship(i + 1)] += thresholds[Citizenship(i)];
+                thresholds[Citizenship(i)] += thresholds[Citizenship(i - 1)];
             }
-            thresholds[Citizenship(i + 1)] += _chances[i];
+            thresholds[Citizenship(i)] += _chances[i];
         }
         require(thresholds[Citizenship.GOLD] == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
         tokenUnitPrice = _tokenUnitPrice;
