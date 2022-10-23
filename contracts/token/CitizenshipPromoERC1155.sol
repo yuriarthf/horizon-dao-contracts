@@ -142,7 +142,7 @@ contract CitizenshipPromoERC1155 is RoyalERC1155 {
     function purchase(uint256 _amount) external payable {
         uint256 totalPrice = _amount * tokenUnitPrice;
         require(msg.value >= totalPrice, "Not enough ethers");
-        require(purchasedAmount + _amount <= PURCHASABLE_SUPPLY, "_amount is to big");
+        require(purchasedAmount + _amount <= PURCHASABLE_SUPPLY, "_amount is too big");
         uint256 magicValue = uint256(
             keccak256(abi.encodePacked(msg.sender, block.timestamp, _amount, purchasedAmount))
         );
