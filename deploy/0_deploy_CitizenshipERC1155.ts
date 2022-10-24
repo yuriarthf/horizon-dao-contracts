@@ -1,4 +1,4 @@
-// 0_deploy_CitizenshipPromoERC1155.ts: Deploy all contracts
+// 0_deploy_CitizenshipERC1155.ts: Deploy all contracts
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -24,14 +24,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const constructorArgs = citizenshipErc1155Args(hre.network.name);
   if (process.env.CONFIG_CITIZENSHIP_CONTRACT) {
     constructorArgs["admin"] = deployer;
-    deployResult = await deploy("CitizenshipPromoERC1155", {
+    deployResult = await deploy("CitizenshipERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,
     });
 
     // get deployed contract
-    const citizenshipNft = await hre.ethers.getContractAt("CitizenshipPromoERC1155", deployResult.address);
+    const citizenshipNft = await hre.ethers.getContractAt("CitizenshipERC1155", deployResult.address);
 
     // Build merkle trees
     const silverMerkleTree = new CitizenshipTree(silverWhitelist);
@@ -44,7 +44,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Transfer admin to multisig
     await citizenshipNft.setAdmin(citizenshipErc1155Args(hre.network.name).admin);
   } else {
-    deployResult = await deploy("CitizenshipPromoERC1155", {
+    deployResult = await deploy("CitizenshipERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,

@@ -6,14 +6,14 @@ import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
-/// @title Horizon DAO Citizenship Promotional NFTs
+/// @title Horizon DAO Citizenship NFTs
 /// @author Horizon DAO (Yuri Fernandes)
-/// @notice Promotional NFTs that will have utility added during
-///     Horizon DAO development stages, Citizenship NFT holder will
-///     also be eligible to various SKY (Governance token) airdrops
-contract CitizenshipPromoERC1155 is RoyalERC1155 {
+/// @notice Citizenship NFTs which will be added utility
+///     during development of HorizonDAO protocol
+contract CitizenshipERC1155 is RoyalERC1155 {
     using Strings for uint256;
 
+    /// @dev Citizenship types
     enum Citizenship {
         BRONZE,
         SILVER,
