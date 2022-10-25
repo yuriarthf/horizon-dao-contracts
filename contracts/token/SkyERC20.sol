@@ -178,7 +178,11 @@ contract SkyERC20 is ERC20 {
     function _getEpochInfo()
         internal
         view
-        returns (uint8 _currentEpoch, uint64 _currentEpochStartTime, uint256 _availableSupply)
+        returns (
+            uint8 _currentEpoch,
+            uint64 _currentEpochStartTime,
+            uint256 _availableSupply
+        )
     {
         // store in memory to save gas
         _currentEpochStartTime = firstEpochStartTime;

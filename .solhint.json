@@ -8,6 +8,7 @@
     "max-line-length": ["error", 120],
     "not-rely-on-time": "off",
     "avoid-low-level-calls": "off",
+    "quotes": "off",
     "prettier/prettier": [
       "error",
       {
