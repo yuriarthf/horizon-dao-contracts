@@ -25,11 +25,14 @@ export function citizenshipErc1155Args(network: string) {
   };
 }
 
-// Gold whitelist
-export const goldWhitelist: Address[] = [];
+// Offset of which public sale will begin after initializing the sale
+export const publicSaleOffset = 1209600; // 2 weeks
 
-// Silver whitelist
-export const silverWhitelist: Address[] = [];
+// Private claim addresses to be added to Merkle Tree
+export const privateClaim: Address[] = [];
+
+// Whitelisted sale addresses to be added to Merkle Tree
+export const whitelistSale: Address[] = [];
 
 /*************** SkyERC20 ***************/
 // Constructor args

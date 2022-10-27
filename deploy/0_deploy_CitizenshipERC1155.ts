@@ -7,7 +7,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 // Import constructor arguments for the contracts
-import { citizenshipErc1155Args, silverWhitelist, goldWhitelist } from "./utils/deployment_args";
+import { citizenshipErc1155Args, privateClaim, whitelistSale, publicSaleOffset } from "./utils/deployment_args";
 
 // Import citizenship merkle tree
 import { CitizenshipTree } from "../test/token/utils/citizenship_tree";
@@ -34,12 +34,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const citizenshipNft = await hre.ethers.getContractAt("CitizenshipERC1155", deployResult.address);
 
     // Build merkle trees
-    const silverMerkleTree = new CitizenshipTree(silverWhitelist);
-    const goldMerkleTree = new CitizenshipTree(goldWhitelist);
+    const privateMerkleTree = new CitizenshipTree(privateClaim);
+    const whitelistedMerkleTree = new CitizenshipTree(whitelistSale);
 
     // Set merkle roots
-    await citizenshipNft.setSilverMerkleRoot(silverMerkleTree.root);
-    await citizenshipNft.setGoldMerkleRoot(goldMerkleTree.root);
+    await citizenshipNft.setPrivateRoot(privateMerkleTree.root);
+    await citizenshipNft.initializeSale(whitelistedMerkleTree.root, publicSaleOffset);
 
     // Transfer admin to multisig
     await citizenshipNft.setAdmin(citizenshipErc1155Args(hre.network.name).admin);
