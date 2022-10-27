@@ -187,6 +187,8 @@ contract CitizenshipERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Image URI
     function imageURI(uint256 _id) public view returns (string memory) {
+        string memory uri_ = super.uri(uint256(0));
+        require(keccak256(bytes(uri_)) != keccak256(""), "!baseURI");
         return string(abi.encodePacked(super.uri(uint256(0)), _id.toString()));
     }
 
