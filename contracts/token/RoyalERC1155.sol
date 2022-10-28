@@ -3,7 +3,6 @@ pragma solidity ^0.8.17;
 
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { ERC1155Supply } from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import { IERC1155MetadataURI } from "@openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import { IEIP2981 } from "../interfaces/IEIP2981.sol";
 
@@ -11,12 +10,12 @@ import { IEIP2981 } from "../interfaces/IEIP2981.sol";
 /// @dev Supports EIP-2981 royalties on NFT secondary sales
 ///      Supports OpenSea contract metadata royalties
 ///      Introduces fake "owner" to support OpenSea collections
-abstract contract RoyalERC1155 is IERC1155MetadataURI, IEIP2981, ERC1155Supply {
+abstract contract RoyalERC1155 is IEIP2981, ERC1155Supply {
     /// @dev OpenSea expects NFTs to be "Ownable", that is having an "owner",
     ///      we introduce a fake "owner" here with no authority
     address public owner;
 
-    /// @dev Address of the admin: Can set a new admin amongst other privileged roles
+    /// @dev Address of the admin: Can set a new admin among other privileged roles
     address public admin;
 
     /// @notice Address to receive EIP-2981 royalties from secondary sales
@@ -59,9 +58,13 @@ abstract contract RoyalERC1155 is IERC1155MetadataURI, IEIP2981, ERC1155Supply {
         _;
     }
 
-    constructor(string memory uri_, address _admin, address _fakeOwner) ERC1155(uri_) {
-        // initialize owner as the "_fakeOwner", necessary for OpenSea
-        owner = _fakeOwner;
+    constructor(
+        string memory uri_,
+        address _admin,
+        address _owner
+    ) ERC1155(uri_) {
+        // initialize owner as the "_owner", necessary for OpenSea
+        owner = _owner;
 
         // set contract admin
         admin = _admin;
@@ -77,7 +80,6 @@ abstract contract RoyalERC1155 is IERC1155MetadataURI, IEIP2981, ERC1155Supply {
     }
 
     /// @dev Restricted access function which updates the contract URI
-    /// @dev Requires executor to have ROLE_URI_MANAGER permission
     /// @param _contractURI new contract URI to set
     function setContractURI(string memory _contractURI) public virtual onlyAdmin {
         // update the contract URI
@@ -104,7 +106,6 @@ abstract contract RoyalERC1155 is IERC1155MetadataURI, IEIP2981, ERC1155Supply {
     }
 
     /// @dev Restricted access function which updates the royalty info
-    /// @dev Requires executor to have ROLE_ROYALTY_MANAGER permission
     /// @param _royaltyReceiver new royalty receiver to set
     /// @param _royaltyPercentage new royalty percentage to set
     function setRoyaltyInfo(address _royaltyReceiver, uint16 _royaltyPercentage) public virtual onlyAdmin {
@@ -129,7 +130,6 @@ abstract contract RoyalERC1155 is IERC1155MetadataURI, IEIP2981, ERC1155Supply {
 
     /// @dev Restricted access function to set smart contract "owner"
     ///      Note: an "owner" set doesn't have any authority, and cannot even update "owner"
-    /// @dev Requires executor to have ROLE_OWNER_MANAGER permission
     /// @param _owner new "owner" of the smart contract
     function transferOwnership(address _owner) public virtual onlyAdmin {
         // update "owner"
