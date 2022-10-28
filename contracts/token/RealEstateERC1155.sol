@@ -4,31 +4,26 @@ pragma solidity ^0.8.17;
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { IERC1155MetadataURI } from "@openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol";
 import { BitMaps } from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
+import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
 contract RealEstateERC1155 is RoyalERC1155 {
     using BitMaps for BitMaps.BitMap;
+    using Counters for Counters.Counter;
     using Strings for uint256;
 
-    // TODO: Move to IRealEstateERC1155.sol
-    enum TokenType {
-        NOT_SET,
-        SPACE,
-        LAND
-    }
-
     /// @dev Address of the minter: Can execute mint function
-    address public minter; // TODO: Will it be only one minter?
+    address public minter;
+
+    /// @dev Address responsible to move expired accounts tokens
+    address public liquidator;
 
     /// @dev mapping (tokenId => tokenName)
     mapping(uint256 => string) public tokenName;
 
     /// @dev mapping (tokenId => tokenSymbol)
     mapping(uint256 => string) public tokenSymbol;
-
-    /// @dev mapping (tokenId => tokenType)
-    mapping(uint256 => TokenType) public tokenType;
 
     /// @dev mapping (tokenId => tokenMaxSupply)
     BitMaps.BitMap private _tokensClaimed;
@@ -47,17 +42,15 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev when a tokenId is initialized, it means it cannot change afterwards
     BitMaps.BitMap private _metadataInitialized;
 
+    BitMaps.BitMap private _hasBeenRedeemed;
+
+    Counters.Counter private _currentId;
+
     /// @dev Emitted when the renovation time of an user is updated (by itself)
     event RenovationTimeUpdated(uint256 indexed _id, address indexed _account, uint256 _updatedAt, uint256 _extendedTo);
 
     /// @dev Emitted when a new reNFT collection metadata is configured
-    event SetTokenMetadata(
-        uint256 indexed _id,
-        TokenType indexed _tokenType,
-        string _name,
-        string _symbol,
-        uint256 _renovationTime
-    );
+    event SetTokenMetadata(uint256 indexed _id, string _name, string _symbol, uint256 _renovationTime);
 
     /// @dev Emitted when a new minter is set
     event NewMinter(address indexed _minter);
@@ -69,15 +62,19 @@ contract RealEstateERC1155 is RoyalERC1155 {
     event RealEstateNFTMinted(uint256 indexed _id, address indexed _minter, address indexed _to, uint256 _amount);
 
     /// @dev Emitted when an user burns all the supply of a reNFT (giving him rights to claim it's deed IRL)
-    event RealEstateRedeemed(uint256 indexed _id, TokenType indexed _tokenType, address indexed _redeemer);
+    event RealEstateRedeemed(uint256 indexed _id, address indexed _redeemer);
 
     /// @dev Checks if msg.sender is the minter
     modifier onlyMinter() {
-        require(msg.sender == minter, "!minter");
+        require(_msgSender() == minter, "!minter");
         _;
     }
 
-    constructor(string memory uri_, address _admin, address _fakeOwner) RoyalERC1155(uri_, _admin, _fakeOwner) {}
+    constructor(
+        string memory uri_,
+        address _admin,
+        address _fakeOwner
+    ) RoyalERC1155(uri_, _admin, _fakeOwner) {}
 
     /// @dev Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {
@@ -92,17 +89,32 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev Returns the URI for the given reNFT collection
     /// @param _id Collection ID
     /// @return Concatenated BaseUri and tokenId
-    function uri(uint256 _id) public view override(ERC1155, IERC1155MetadataURI) returns (string memory) {
-        require(exists(_id), "ERC721Tradable#uri: NONEXISTENT_TOKEN");
+    function uri(uint256 _id) public view override returns (string memory) {
+        require(exists(_id), "Non-existent token id");
         return string(abi.encodePacked(super.uri(_id), Strings.toString(_id)));
+    }
+
+    function accountExpired(uint256 _id, address _account) public view returns (bool) {
+        return block.timestamp >= accountExpirationTime[_id][_account];
+    }
+
+    function isLiquidable(uint256 _id, address _account) public view returns (bool) {
+        return liquidator != address(0) && accountExpired(_id, _account);
     }
 
     /// @dev Set new minter role
     /// @param _minter New minter address
     function setMinter(address _minter) external onlyAdmin {
-        require(minter != _minter, "minter == _minter");
+        require(minter != _minter, "Same minter");
         minter = _minter;
         emit NewMinter(_minter);
+    }
+
+    /// @dev Set new liquidator role
+    /// @param _liquidator New liquidator address
+    function setLiquidator(address _liquidator) external onlyAdmin {
+        require(liquidator != _liquidator, "Same liquidator");
+        liquidator = _liquidator;
     }
 
     /// @dev Sets the metadata for a new reNFT collection
@@ -110,51 +122,71 @@ contract RealEstateERC1155 is RoyalERC1155 {
         uint256 _id,
         string memory _name,
         string memory _symbol,
-        TokenType _tokenType,
         uint256 _renovationTime
     ) external onlyMinter {
         require(!_metadataInitialized.get(_id), "metadataInitialized");
-        require(_tokenType != TokenType.NOT_SET, "_tokenType == TokenType.NOT_SET");
 
         tokenName[_id] = _name;
         tokenSymbol[_id] = _symbol;
-        tokenType[_id] = _tokenType;
         tokenRenovationTime[_id] = _renovationTime;
         _metadataInitialized.set(_id);
-        emit SetTokenMetadata(_id, _tokenType, _name, _symbol, _renovationTime);
+        emit SetTokenMetadata(_id, _name, _symbol, _renovationTime);
     }
 
     function markAsClaimed(uint256 _id) external onlyMinter {
-        require(!_tokensClaimed.get(_id), "tokensClaimed");
+        require(!_tokensClaimed.get(_id), "Already claimed");
         _tokensClaimed.set(_id);
-        emit AllTokenClaimed(_id, msg.sender, block.timestamp);
+        emit AllTokenClaimed(_id, _msgSender(), block.timestamp);
     }
 
-    function mint(address _to, uint256 _id, uint256 _amount) external onlyMinter {
+    function mint(
+        address _to,
+        uint256 _id,
+        uint256 _amount
+    ) external onlyMinter {
         require(_metadataInitialized.get(_id), "!metadataInitialized");
+        if (totalSupply(_id) == 0) {
+            uint256 currentId_ = _currentId.current();
+            require(currentId_ == 0 || totalSupply(currentId_ - 1) > 0, "IDs should be sequential");
+            _currentId.increment();
+        }
         _mint(_to, _id, _amount, bytes(""));
         uint256 updatedExpirationTime = block.timestamp + tokenRenovationTime[_id];
         accountExpirationTime[_id][_to] = updatedExpirationTime;
         emit RenovationTimeUpdated(_id, _to, block.timestamp, updatedExpirationTime);
-        emit RealEstateNFTMinted(_id, msg.sender, _to, _amount);
+        emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
+    }
+
+    function takeCustody(
+        uint256 _id,
+        address _account,
+        bytes memory _data
+    ) external {
+        require(_msgSender() == liquidator && isLiquidable(_id, _account), "Liquidation denied");
+        _safeTransferFrom(_account, _msgSender(), _id, balanceOf(_msgSender(), _id), _data);
     }
 
     function redeemDeed(uint256 _id) external {
-        require(_tokensClaimed.get(_id), "!tokensClaimed");
-        uint256 userBalance = balanceOf(msg.sender, _id);
+        require(_tokensClaimed.get(_id), "Tokens should be claimed");
+        require(!_hasBeenRedeemed.get(_id), "Already redeemed");
+        uint256 userBalance = balanceOf(_msgSender(), _id);
         require(userBalance == totalSupply(_id), "userBalance != totalSupply");
-        _burn(msg.sender, _id, userBalance);
-        emit RealEstateRedeemed(_id, tokenType[_id], msg.sender);
+        _burn(_msgSender(), _id, userBalance);
+        _hasBeenRedeemed.set(_id);
+        emit RealEstateRedeemed(_id, _msgSender());
     }
 
-    function renovateExpirationTime(uint256 _id) external {
-        require(balanceOf(msg.sender, _id) > 0, "userBalance == 0");
+    function renovateExpirationTime(uint256 _id) public {
+        require(balanceOf(_msgSender(), _id) > 0, "No balance");
+        require(!_hasBeenRedeemed.get(_id), "Token redeemed");
         uint256 updatedExpirationTime = block.timestamp + tokenRenovationTime[_id];
-        accountExpirationTime[_id][msg.sender] = updatedExpirationTime;
-        emit RenovationTimeUpdated(_id, msg.sender, block.timestamp, updatedExpirationTime);
+        accountExpirationTime[_id][_msgSender()] = updatedExpirationTime;
+        emit RenovationTimeUpdated(_id, _msgSender(), block.timestamp, updatedExpirationTime);
     }
 
-    // TODO:
-    // - Add royalties
-    // - function to auction non-renovated users' reNFTs
+    function renovateAll() external {
+        for (uint256 id = 0; id < _currentId.current(); id++) {
+            if (!_hasBeenRedeemed.get(id)) renovateExpirationTime(id);
+        }
+    }
 }

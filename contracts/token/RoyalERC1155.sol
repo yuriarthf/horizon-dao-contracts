@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import { ERC1155Supply } from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import { SingleApprovableERC1155 } from "./SingleApprovableERC1155.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import { IEIP2981 } from "../interfaces/IEIP2981.sol";
 
@@ -10,7 +10,7 @@ import { IEIP2981 } from "../interfaces/IEIP2981.sol";
 /// @dev Supports EIP-2981 royalties on NFT secondary sales
 ///      Supports OpenSea contract metadata royalties
 ///      Introduces fake "owner" to support OpenSea collections
-abstract contract RoyalERC1155 is IEIP2981, ERC1155Supply {
+abstract contract RoyalERC1155 is IEIP2981, SingleApprovableERC1155 {
     /// @dev OpenSea expects NFTs to be "Ownable", that is having an "owner",
     ///      we introduce a fake "owner" here with no authority
     address public owner;
