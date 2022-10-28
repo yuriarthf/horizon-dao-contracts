@@ -58,7 +58,11 @@ abstract contract RoyalERC1155 is IEIP2981, ERC1155Supply {
         _;
     }
 
-    constructor(string memory uri_, address _admin, address _owner) ERC1155(uri_) {
+    constructor(
+        string memory uri_,
+        address _admin,
+        address _owner
+    ) ERC1155(uri_) {
         // initialize owner as the "_owner", necessary for OpenSea
         owner = _owner;
 
