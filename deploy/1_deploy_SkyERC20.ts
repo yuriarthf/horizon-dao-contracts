@@ -1,4 +1,4 @@
-// 1_deploy.ts: Deploy all contracts
+// 1_deploy_SkyERC20.ts: Deploy all contracts
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -23,5 +23,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 };
-func.tags = ["deploy"];
+func.tags = ["deploy", "SKY"];
 export default func;
