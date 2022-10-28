@@ -13,9 +13,6 @@ contract SkyERC20 is ERC20 {
     /// @dev Address of the admin: Can set new admin, burner and minter addresses
     address public admin;
 
-    /// @dev Address of the burner: Can execute burn function
-    address public burner;
-
     /// @dev Address of the minter: Can execute mint function
     address public minter; // TODO: Will it be only one minter?
 
@@ -131,14 +128,6 @@ contract SkyERC20 is ERC20 {
         emit NewAdmin(_admin);
     }
 
-    /// @dev Set new burner role
-    /// @param _burner New burner address
-    function setBurner(address _burner) external onlyAdmin {
-        require(burner != _burner, "burner == _burner");
-        burner = _burner;
-        emit NewBurner(_burner);
-    }
-
     /// @dev Set new minter role
     /// @param _minter New minter address
     function setMinter(address _minter) external onlyAdmin {
@@ -159,16 +148,6 @@ contract SkyERC20 is ERC20 {
         _mint(account, amount);
         mintedSupply += amount;
         emit SupplyMinted(msg.sender, account, _currentEpoch, amount, _mintableSupply);
-    }
-
-    /// @dev Burns an amount of tokens owned by the msg.sender
-    /// @dev BURNER_ROLE is required to execute this function
-    /// @dev This function is designed so that users can migrate it's tokens
-    /// to a new ERC20 contract. This contract should take the tokens on it's custody
-    /// burn the legacy tokens and mint new ones for the msg.sender
-    function burn(uint256 amount) external {
-        require(msg.sender == burner, "!burner");
-        _burn(msg.sender, amount);
     }
 
     /// @dev Get updated epoch info

@@ -26,7 +26,6 @@ describe("SkyERC20 Unit Tests", () => {
   let deployer: Signer;
   let skyToken: SkyERC20;
   let admin: Signer;
-  let burner: Signer;
   let minter: Signer;
   let user: Signer;
   let newAdmin: Signer;
@@ -55,7 +54,7 @@ describe("SkyERC20 Unit Tests", () => {
 
   before(async () => {
     // get deployer address
-    [deployer, admin, burner, minter, user, newAdmin] = await ethers.getSigners();
+    [deployer, admin, minter, user, newAdmin] = await ethers.getSigners();
 
     // get current block timestamp
     const currentBlockNumber = await ethers.provider.getBlockNumber();
@@ -68,8 +67,7 @@ describe("SkyERC20 Unit Tests", () => {
       .connect(deployer)
       .deploy(admin.getAddress(), numberOfEpochs, firstEpochStartTime, epochDurations, rampValues);
 
-    // set burner and minter
-    await skyToken.connect(admin).setBurner(burner.getAddress());
+    // set and minter
     await skyToken.connect(admin).setMinter(minter.getAddress());
   });
 
@@ -95,31 +93,20 @@ describe("SkyERC20 Unit Tests", () => {
       // set admin
       await expect(skyToken.connect(user).setAdmin(user.getAddress())).to.be.revertedWith("!admin");
 
-      // set burner
-      await expect(skyToken.connect(user).setBurner(user.getAddress())).to.be.revertedWith("!admin");
-
       // set minter
       await expect(skyToken.connect(user).setMinter(user.getAddress())).to.be.revertedWith("!admin");
     });
-    it("New admin, burner and minter should have different addresses than the previous ones", async () => {
+    it("New admin and minter should have different addresses than the previous ones", async () => {
       // try setting new admin to the same address
       await expect(skyToken.connect(admin).setAdmin(admin.getAddress())).to.be.revertedWith("admin == _admin");
-
-      // try setting new burner to the same address
-      await expect(skyToken.connect(admin).setBurner(burner.getAddress())).to.be.revertedWith("burner == _burner");
 
       // try setting new minter to the same address
       await expect(skyToken.connect(admin).setMinter(minter.getAddress())).to.be.revertedWith("minter == _minter");
     });
-    it("Change admin, burner and minter should emit events", async () => {
+    it("Change admin and minter should emit events", async () => {
       // change to a new admin
       await expect(skyToken.connect(admin).setAdmin(newAdmin.getAddress()))
         .to.emit(skyToken, "NewAdmin")
-        .withArgs(await newAdmin.getAddress());
-
-      // change to a new burner
-      await expect(skyToken.connect(newAdmin).setBurner(newAdmin.getAddress()))
-        .to.emit(skyToken, "NewBurner")
         .withArgs(await newAdmin.getAddress());
 
       // change to a new minter
@@ -129,7 +116,6 @@ describe("SkyERC20 Unit Tests", () => {
 
       // give the roles back to the previous owners
       await skyToken.connect(newAdmin).setAdmin(admin.getAddress());
-      await skyToken.connect(admin).setBurner(burner.getAddress());
       await skyToken.connect(admin).setMinter(minter.getAddress());
     });
   });
@@ -196,28 +182,6 @@ describe("SkyERC20 Unit Tests", () => {
 
         // check if mintable supply decreased by amount
         expect(await skyToken.mintableSupply()).to.be.equal(mintableSupplyBefore.sub(amount));
-      });
-      it("Burner can burn tokens if it has custody over it", async () => {
-        // get totalSupplyBefore
-        const totalSupplyBefore = await skyToken.totalSupply();
-
-        // get balance for user
-        const userBalance = await skyToken.balanceOf(user.getAddress());
-
-        // get random amount to send to burner
-        const amount = randomUint256().mod(userBalance);
-
-        // try to burn amount with user -- should revert
-        await expect(skyToken.burn(amount)).to.be.revertedWith("!burner");
-
-        // send amount to burner
-        await skyToken.connect(user).transfer(burner.getAddress(), amount);
-
-        // burn amount
-        await skyToken.connect(burner).burn(amount);
-
-        // check if totalSupply decreased by amount
-        expect(await skyToken.totalSupply()).to.be.equal(totalSupplyBefore.sub(amount));
       });
       it("Revert if trying to mint more than current available supply", async () => {
         // get mintable supply
