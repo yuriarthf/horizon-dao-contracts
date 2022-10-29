@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @title SkyERC20
 /// @notice HorizonDAO Governance token
 /// @author HorizonDAO (Yuri Fernandes)
-contract SkyERC20 is ERC20 {
+contract SkyERC20 is ERC20, IERC165 {
     /// @dev Maximum supply of 100M tokens (with 18 decimal points)
     uint256 public constant MAX_SUPPLY = 100_000_000 * 1e18;
 
@@ -186,5 +188,10 @@ contract SkyERC20 is ERC20 {
             _availableSupply += _rampValues[_currentEpoch];
             ++_currentEpoch;
         }
+    }
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return type(IERC165).interfaceId == interfaceId || type(IERC20).interfaceId == interfaceId;
     }
 }
