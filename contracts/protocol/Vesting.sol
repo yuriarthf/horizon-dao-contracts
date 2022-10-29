@@ -133,7 +133,7 @@ contract Vesting is Ownable {
                 _lockVestedPeriod >= MIN_VESTING_PERIOD && _lockVestedPeriod <= MAX_VESTING_PERIOD,
                 "Invalid lock time"
             );
-            IERC20(underlying).safeTransfer(voteEscrow, amountDue);
+            IERC20(underlying).safeApprove(voteEscrow, amountDue);
             // TODO: Implement logic to lock amountDue tokens to _recipient on Vote Escrow contract
             return;
         }
