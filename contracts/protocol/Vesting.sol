@@ -138,6 +138,7 @@ contract Vesting is Ownable {
             return;
         }
         IERC20(underlying).safeTransfer(_recipient, amountDue);
+        positions[_positionId].amountPaid += amountDue;
 
         emit AmountClaimed(_msgSender(), _recipient, amountDue, _lockVestedPeriod);
     }
