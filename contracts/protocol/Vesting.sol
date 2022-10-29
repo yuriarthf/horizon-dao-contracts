@@ -135,10 +135,10 @@ contract Vesting is Ownable {
             );
             IERC20(underlying).safeApprove(voteEscrow, amountDue);
             // TODO: Implement logic to lock amountDue tokens to _recipient on Vote Escrow contract
-            return;
+        } else {
+            IERC20(underlying).safeTransfer(_recipient, amountDue);
+            positions[_positionId].amountPaid += amountDue;
         }
-        IERC20(underlying).safeTransfer(_recipient, amountDue);
-        positions[_positionId].amountPaid += amountDue;
 
         emit AmountClaimed(_msgSender(), _recipient, amountDue, _lockVestedPeriod);
     }
