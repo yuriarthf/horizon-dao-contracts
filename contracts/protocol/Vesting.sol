@@ -6,12 +6,13 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
+import { IVoteEscrow } from "../interfaces/IVoteEscrow.sol";
 
 contract Vesting is Ownable {
     using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
 
-    uint256 public constant BASE_MULTIPLIER = 1e8; // Used to mitigate rounding errors
+    uint256 public constant BASE_MULTIPLIER = 1e18; // Used to mitigate rounding errors
     uint256 public constant MIN_VESTING_PERIOD = 365 days; // 1 year
     uint256 public constant MAX_VESTING_PERIOD = 4 * 365 days; // 4 years
     uint256 public constant LOCK_VESTED_MIN_PERIOD = 365 days; // 1 year
@@ -73,6 +74,11 @@ contract Vesting is Ownable {
         return totalSupply() - totalVesting;
     }
 
+    function amountDue(uint256 _positionId) public view returns (uint256) {
+        Position memory userPosition = positions[_positionId];
+        return _amountDue(userPosition);
+    }
+
     function createPosition(
         address _beneficiary,
         uint256 _amount,
@@ -122,27 +128,30 @@ contract Vesting is Ownable {
         require(userPosition.beneficiary == _msgSender(), "Invalid position");
         require(userPosition.vestingStart >= block.timestamp, "Vesting hasn't started");
         require(_recipient != address(0), "Invalid recipient");
-        uint256 amountDue = ((((
-            block.timestamp < userPosition.vestingEnd
-                ? block.timestamp
-                : userPosition.vestingEnd - userPosition.vestingStart
-        ) * userPosition.amount) * BASE_MULTIPLIER) / (userPosition.vestingEnd - userPosition.vestingStart)) /
-            BASE_MULTIPLIER -
-            userPosition.amountPaid;
-        if (amountDue == 0) return;
+        uint256 amountDue_ = _amountDue(userPosition);
+        if (amountDue_ == 0) return;
         if (userPosition.lockVested || _lockVestedPeriod > 0) {
             require(voteEscrow != address(0), "No vote escrow");
             require(
                 _lockVestedPeriod >= MIN_VESTING_PERIOD && _lockVestedPeriod <= MAX_VESTING_PERIOD,
                 "Invalid lock time"
             );
-            IERC20(underlying).safeApprove(voteEscrow, amountDue);
-            // TODO: Implement logic to lock amountDue tokens to _recipient on Vote Escrow contract
+            IERC20(underlying).safeApprove(voteEscrow, amountDue_);
+            IVoteEscrow(voteEscrow).lock(amountDue_, _lockVestedPeriod);
         } else {
-            IERC20(underlying).safeTransfer(_recipient, amountDue);
+            IERC20(underlying).safeTransfer(_recipient, amountDue_);
         }
-        positions[_positionId].amountPaid += amountDue;
+        positions[_positionId].amountPaid += amountDue_;
 
-        emit AmountClaimed(_msgSender(), _recipient, amountDue, _lockVestedPeriod);
+        emit AmountClaimed(_msgSender(), _recipient, amountDue_, _lockVestedPeriod);
+    }
+
+    function _amountDue(Position memory _position) internal view returns (uint256) {
+        return
+            ((((
+                block.timestamp < _position.vestingEnd ? block.timestamp : _position.vestingEnd - _position.vestingStart
+            ) * _position.amount) * BASE_MULTIPLIER) / (_position.vestingEnd - _position.vestingStart)) /
+            BASE_MULTIPLIER -
+            _position.amountPaid;
     }
 }

@@ -6,12 +6,14 @@ import { IERC1155MetadataURI } from "@openzeppelin/contracts/token/ERC1155/exten
 import { BitMaps } from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
 contract RealEstateERC1155 is RoyalERC1155 {
     using BitMaps for BitMaps.BitMap;
     using Counters for Counters.Counter;
     using Strings for uint256;
+    using Address for address;
 
     /// @dev Address of the minter: Can execute mint function
     address public minter;
@@ -42,8 +44,18 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev when a tokenId is initialized, it means it cannot change afterwards
     BitMaps.BitMap private _metadataInitialized;
 
+    /// @dev mapping (tokenId => hasBeenRedeemed)
+    /// @dev Whether all crowdfunding supply has been redeemed
+    /// @dev If true, unlocks deed redeeming
     BitMaps.BitMap private _hasBeenRedeemed;
 
+    /// @dev mapping (contract => isPerpetual)
+    /// @dev Some addresses might need perpetual ownership in order
+    ///     to use reNFTs as collateral, among other additional utilities,
+    ///     to do so, they need to be safe of liquidation
+    mapping(address => bool) public isPerpetual;
+
+    /// @dev Current value shows the next available collection ID
     Counters.Counter private _currentId;
 
     /// @dev Emitted when the renovation time of an user is updated (by itself)
@@ -63,6 +75,9 @@ contract RealEstateERC1155 is RoyalERC1155 {
 
     /// @dev Emitted when an user burns all the supply of a reNFT (giving him rights to claim it's deed IRL)
     event RealEstateRedeemed(uint256 indexed _id, address indexed _redeemer);
+
+    /// @dev Emitted when togglePerpetual function is successfully called
+    event LogTogglePerpetual(address indexed _contractAddress, bool indexed _isPerpetual);
 
     /// @dev Checks if msg.sender is the minter
     modifier onlyMinter() {
@@ -95,7 +110,7 @@ contract RealEstateERC1155 is RoyalERC1155 {
     }
 
     function accountExpired(uint256 _id, address _account) public view returns (bool) {
-        return block.timestamp >= accountExpirationTime[_id][_account];
+        return !isPerpetual[_account] && block.timestamp >= accountExpirationTime[_id][_account];
     }
 
     function isLiquidable(uint256 _id, address _account) public view returns (bool) {
@@ -131,6 +146,12 @@ contract RealEstateERC1155 is RoyalERC1155 {
         tokenRenovationTime[_id] = _renovationTime;
         _metadataInitialized.set(_id);
         emit SetTokenMetadata(_id, _name, _symbol, _renovationTime);
+    }
+
+    function togglePerpetual(address _contractAddress, bool _isPerpetual) external onlyAdmin {
+        require(_contractAddress.isContract(), "Only contracts allowed to be perpetual");
+        isPerpetual[_contractAddress] = _isPerpetual;
+        emit LogTogglePerpetual(_contractAddress, _isPerpetual);
     }
 
     function markAsClaimed(uint256 _id) external onlyMinter {

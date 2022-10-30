@@ -1,12 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { ERC1155Supply } from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import {
+    ERC1155SupplyUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 
-abstract contract SingleApprovableERC1155 is ERC1155Supply {
+abstract contract SingleApprovableERC1155Upgradeable is ERC1155SupplyUpgradeable {
     mapping(uint256 => mapping(address => mapping(address => uint256))) private _allowances;
 
     event Approval(uint256 indexed _id, address indexed _owner, address indexed _spender, uint256 _amount);
+
+    function __SingleApprovableERC1155_init(string memory _uri) internal onlyInitializing {
+        __ERC1155_init_unchained(_uri);
+        __ERC1155Supply_init_unchained();
+        __SingleApprovableERC1155_init_unchained();
+    }
+
+    function __SingleApprovableERC1155_init_unchained() internal onlyInitializing {}
 
     function approve(
         uint256 _id,

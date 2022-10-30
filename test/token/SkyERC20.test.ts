@@ -49,7 +49,7 @@ describe("SkyERC20 Unit Tests", () => {
   }
 
   async function getMintableSupply(skyToken: SkyERC20, epoch: number): Promise<BigNumber> {
-    return getAvailableSupply(epoch).sub(await skyToken.mintedSupply());
+    return getAvailableSupply(epoch).sub(await skyToken.totalSupply());
   }
 
   before(async () => {

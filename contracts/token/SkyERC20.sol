@@ -31,9 +31,6 @@ contract SkyERC20 is ERC20, IERC165 {
     /// @dev Values to increment the availableSupply at the end of an epoch
     uint256[] public rampValues;
 
-    /// @dev Keeps track of minted supply
-    uint256 public mintedSupply;
-
     /// @dev Checks if msg.sender is the admin
     modifier onlyAdmin() {
         require(msg.sender == admin, "!admin");
@@ -109,7 +106,7 @@ contract SkyERC20 is ERC20, IERC165 {
 
     /// @notice Get the amount of mintable tokens at the moment
     function mintableSupply() public view returns (uint256) {
-        return availableSupply() - mintedSupply;
+        return availableSupply() - totalSupply();
     }
 
     /// @notice Get the current timestamp converted to uint64
@@ -145,10 +142,9 @@ contract SkyERC20 is ERC20, IERC165 {
     function mint(address account, uint256 amount) external {
         require(msg.sender == minter, "!minter");
         (uint8 _currentEpoch, , uint256 _availableSupply) = _getEpochInfo();
-        uint256 _mintableSupply = _availableSupply - mintedSupply;
+        uint256 _mintableSupply = _availableSupply - totalSupply();
         require(amount <= _mintableSupply, "amount > mintableSupply");
         _mint(account, amount);
-        mintedSupply += amount;
         emit SupplyMinted(msg.sender, account, _currentEpoch, amount, _mintableSupply);
     }
 
