@@ -122,8 +122,11 @@ contract Vesting is Ownable {
         require(userPosition.beneficiary == _msgSender(), "Invalid position");
         require(userPosition.vestingStart >= block.timestamp, "Vesting hasn't started");
         require(_recipient != address(0), "Invalid recipient");
-        uint256 amountDue = ((((block.timestamp - userPosition.vestingStart) * userPosition.amount) * BASE_MULTIPLIER) /
-            (userPosition.vestingEnd - userPosition.vestingStart)) /
+        uint256 amountDue = ((((
+            block.timestamp < userPosition.vestingEnd
+                ? block.timestamp
+                : userPosition.vestingEnd - userPosition.vestingStart
+        ) * userPosition.amount) * BASE_MULTIPLIER) / (userPosition.vestingEnd - userPosition.vestingStart)) /
             BASE_MULTIPLIER -
             userPosition.amountPaid;
         if (amountDue == 0) return;
