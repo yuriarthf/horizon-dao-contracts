@@ -104,12 +104,37 @@ contract Vesting is Ownable {
         return totalSupply() - totalVesting;
     }
 
-    /// @dev Amount of vested tokens for a specific position
+    /// @notice Amount of vested tokens for a specific position
     /// @param _positionId ID of the position
     /// @return Claimable amount
     function amountDue(uint256 _positionId) public view returns (uint256) {
         Position memory userPosition = positions[_positionId];
         return _amountDue(userPosition);
+    }
+
+    /// @notice Total amount of vested underlying for an user
+    /// @param _account User address
+    /// @return Total vested amount
+    function userTotalAmountDue(address _account) external view returns (uint256) {
+        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
+        uint256 totalAmountDue;
+        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
+            totalAmountDue += _amountDue(positions[userPositionIndexes_[i]]);
+        }
+        return totalAmountDue;
+    }
+
+    /// @notice Returns the position indexes for a given user (comma-separated)
+    /// @param _account User address
+    /// @return Comma-separated user positions' indexes
+    function getUserPositionIndexes(address _account) external view returns (string memory) {
+        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
+        bytes memory positionIndexes = "";
+        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
+            positionIndexes = abi.encodePacked(positionIndexes);
+            if (i != userPositionIndexes_.length) positionIndexes = abi.encodePacked(positionIndexes, ", ");
+        }
+        return string(positionIndexes);
     }
 
     /// @dev Set a vote escrow contract
