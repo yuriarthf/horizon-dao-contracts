@@ -8,6 +8,9 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 import { IVoteEscrow } from "../interfaces/IVoteEscrow.sol";
 
+/// @title Vesting
+/// @dev Used to vest underlying ERC20 for various addresses
+/// @author HorizonDAO (Yuri Fernandes)
 contract Vesting is Ownable {
     using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
