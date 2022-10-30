@@ -12,12 +12,28 @@ contract Vesting is Ownable {
     using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
 
-    uint256 public constant BASE_MULTIPLIER = 1e18; // Used to mitigate rounding errors
+    /// @dev Multiplier used during division operations to decrease rounding errors
+    uint256 public constant BASE_MULTIPLIER = 1e18;
+
+    /// @dev Minimum vesting period
     uint256 public constant MIN_VESTING_PERIOD = 365 days; // 1 year
+
+    /// @dev Maximum vesting period
     uint256 public constant MAX_VESTING_PERIOD = 4 * 365 days; // 4 years
+
+    /// @dev Minimum lock period after claiming vested tokens (if lockVested is false, locking is not required)
     uint256 public constant LOCK_VESTED_MIN_PERIOD = 365 days; // 1 year
+
+    /// @dev Maximum lock period after claiming vested tokens
     uint256 public constant LOCK_VESTED_MAX_PERIOD = 4 * 365 days; // 4 years
 
+    /// @dev Position structure containing required data:
+    ///     - beneficiary: Who'll have control over vested tokens
+    ///     - amount: Amount of tokens to be vested in the position
+    ///     - amountPaid: Amount of vested tokens claimed
+    ///     - vestingStart: When tokens start to vest
+    ///     - vestingEnd: When tokens vest completely
+    ///     - lockVested: Whether to enforce token locking after vested
     struct Position {
         address beneficiary;
         uint256 amount;
@@ -27,20 +43,29 @@ contract Vesting is Ownable {
         bool lockVested;
     }
 
+    /// @dev Underlying vested token address
     address public immutable underlying;
 
+    /// @dev VoteEscrow address, where tokens will be locked
     address public voteEscrow;
 
+    /// @dev Amount of tokens been vested
     uint256 public totalVesting;
 
+    /// @dev ID of the next vested position ID
     Counters.Counter private _currentPositionId;
 
+    /// @dev Array containing all vesting positions
     Position[] public positions;
 
+    /// @dev mapping (user => vestingPostions)
+    /// @dev Contains the user vesting positions' indexes
     mapping(address => uint256[]) public userPositionIndexes;
 
+    /// @dev Emitted when a new Vote Escrow contract is set
     event VoteEscrowSet(address indexed _admin, address _voteEscrow);
 
+    /// @dev Emitted when a new vested position is created
     event PositionCreated(
         address indexed _admin,
         address indexed _beneficiary,
@@ -48,11 +73,14 @@ contract Vesting is Ownable {
         uint256 _amount,
         uint256 _vestingStart,
         uint256 _vestingEnd,
-        bool lockVested
+        bool _lockVested
     );
 
+    /// @dev Emitted when an amount of vested tokens is claimed
     event AmountClaimed(address indexed _by, address indexed _recipient, uint256 _amount, uint256 _voteLockPeriod);
 
+    /// @dev Initialize Vesting contract
+    /// @param _underlying Address of the underlying vesting asset
     constructor(address _underlying) {
         require(
             IERC165(_underlying).supportsInterface(type(IERC20).interfaceId),
@@ -61,24 +89,42 @@ contract Vesting is Ownable {
         underlying = _underlying;
     }
 
-    function setVoteEscrow(address _voteEscrow) external onlyOwner {
-        voteEscrow = _voteEscrow;
-        emit VoteEscrowSet(_msgSender(), _voteEscrow);
+    /// @notice Size of the positions array (how many vested positions exist)
+    function vestedPositions() external view returns (uint256) {
+        return _currentPositionId.current();
     }
 
+    /// @notice Amount of underlying tokens Vesting contract owns
     function totalSupply() public view returns (uint256) {
         return IERC20(underlying).balanceOf(address(this));
     }
 
+    /// @notice Amount of tokens available to be vested
     function usableSupply() public view returns (uint256) {
         return totalSupply() - totalVesting;
     }
 
+    /// @dev Amount of vested tokens for a specific position
+    /// @param _positionId ID of the position
+    /// @return Claimable amount
     function amountDue(uint256 _positionId) public view returns (uint256) {
         Position memory userPosition = positions[_positionId];
         return _amountDue(userPosition);
     }
 
+    /// @dev Set a vote escrow contract
+    /// @param _voteEscrow Address of the vote escrow contract
+    function setVoteEscrow(address _voteEscrow) external onlyOwner {
+        voteEscrow = _voteEscrow;
+        emit VoteEscrowSet(_msgSender(), _voteEscrow);
+    }
+
+    /// @dev Create a new vesting position
+    /// @param _beneficiary The address of the vesting position owner
+    /// @param _amount Amount of underlying to be vested
+    /// @param _cliffPeriod Period of time that tokens won't vest
+    /// @param _vestingDuration Amount of time tokens will vest
+    /// @param _lockVested Whether vested underlying locking will be enforced
     function createPosition(
         address _beneficiary,
         uint256 _amount,
@@ -119,6 +165,10 @@ contract Vesting is Ownable {
         );
     }
 
+    /// @notice Claim vested underlying
+    /// @param _positionId ID of the position to claim vested tokens
+    /// @param _recipient Recipient of the vested tokens
+    /// @param _lockVestedPeriod Amount of time to lock vested tokens (mandatory if lockVested is true)
     function claim(
         uint256 _positionId,
         address _recipient,
@@ -142,10 +192,14 @@ contract Vesting is Ownable {
             IERC20(underlying).safeTransfer(_recipient, amountDue_);
         }
         positions[_positionId].amountPaid += amountDue_;
+        totalVesting -= amountDue_;
 
         emit AmountClaimed(_msgSender(), _recipient, amountDue_, _lockVestedPeriod);
     }
 
+    /// @dev Calculates the amount of vested tokens due for a given position
+    /// @param _position Position instance
+    /// @return claimable amount
     function _amountDue(Position memory _position) internal view returns (uint256) {
         return
             ((((
