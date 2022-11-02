@@ -85,11 +85,15 @@ contract RealEstateERC1155 is RoyalERC1155 {
         _;
     }
 
+    /// @dev Initialize RealEstateNFT
+    /// @param _baseUri Base URI for the offchain NFT metadata
+    /// @param _admin Address with contract administration privileges
+    /// @param _fakeOwner EOA to be used as OpenSea collection admin
     constructor(
-        string memory uri_,
+        string memory _baseUri,
         address _admin,
         address _fakeOwner
-    ) RoyalERC1155(uri_, _admin, _fakeOwner) {}
+    ) RoyalERC1155(_baseUri, _admin, _fakeOwner) {}
 
     /// @dev Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {
@@ -133,6 +137,10 @@ contract RealEstateERC1155 is RoyalERC1155 {
     }
 
     /// @dev Sets the metadata for a new reNFT collection
+    /// @param _id Collection ID
+    /// @param _name New collection name
+    /// @param _symbol New collection symbol
+    /// @param _renovationTime The amout of time an user is required to check-in
     function setTokenMetadata(
         uint256 _id,
         string memory _name,
@@ -148,21 +156,31 @@ contract RealEstateERC1155 is RoyalERC1155 {
         emit SetTokenMetadata(_id, _name, _symbol, _renovationTime);
     }
 
+    /// @dev Toggle renovation requirements for a contract
+    /// @param _contractAddress Address of the contract to toggle renovation
+    /// @param _isPerpetual Whether to disable or enable renovation
     function togglePerpetual(address _contractAddress, bool _isPerpetual) external onlyAdmin {
         require(_contractAddress.isContract(), "Only contracts allowed to be perpetual");
         isPerpetual[_contractAddress] = _isPerpetual;
         emit LogTogglePerpetual(_contractAddress, _isPerpetual);
     }
 
+    /// @dev Mark crowdfunded reNFTs tokens are claimed
+    /// @dev Step is required to unlock redeeming deed
+    /// @param _id Collection ID
     function markAsClaimed(uint256 _id) external onlyMinter {
         require(!_tokensClaimed.get(_id), "Already claimed");
         _tokensClaimed.set(_id);
         emit AllTokenClaimed(_id, _msgSender(), block.timestamp);
     }
 
+    /// @dev Mint new reNFT tokens
+    /// @param _id Collection ID
+    /// @param _to Address to transfer minted tokens
+    /// @param _amount Amount to mint
     function mint(
-        address _to,
         uint256 _id,
+        address _to,
         uint256 _amount
     ) external onlyMinter {
         require(_metadataInitialized.get(_id), "!metadataInitialized");
@@ -178,6 +196,10 @@ contract RealEstateERC1155 is RoyalERC1155 {
         emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
     }
 
+    /// @dev Allow the liquidator to take custody over expired accounts' tokens
+    /// @param _id Collection ID
+    /// @param _account Account address to liquidate tokens from
+    /// @param _data Additional data requirements in case liquidator is a contract
     function takeCustody(
         uint256 _id,
         address _account,
@@ -187,6 +209,8 @@ contract RealEstateERC1155 is RoyalERC1155 {
         _safeTransferFrom(_account, _msgSender(), _id, balanceOf(_msgSender(), _id), _data);
     }
 
+    /// @notice Redeem deed in case user owns 100% of the tokens' supply
+    /// @param _id Collection ID of the reNFT to redeem
     function redeemDeed(uint256 _id) external {
         require(_tokensClaimed.get(_id), "Tokens should be claimed");
         require(!_hasBeenRedeemed.get(_id), "Already redeemed");
@@ -197,6 +221,8 @@ contract RealEstateERC1155 is RoyalERC1155 {
         emit RealEstateRedeemed(_id, _msgSender());
     }
 
+    /// @notice Renovate expiration time (proving the account is active)
+    /// @param _id Collection ID
     function renovateExpirationTime(uint256 _id) public {
         require(balanceOf(_msgSender(), _id) > 0, "No balance");
         require(!_hasBeenRedeemed.get(_id), "Token redeemed");
@@ -205,9 +231,10 @@ contract RealEstateERC1155 is RoyalERC1155 {
         emit RenovationTimeUpdated(_id, _msgSender(), block.timestamp, updatedExpirationTime);
     }
 
+    /// @notice Renovate expiration time for all collections the user owns tokens
     function renovateAll() external {
         for (uint256 id = 0; id < _currentId.current(); id++) {
-            if (!_hasBeenRedeemed.get(id)) renovateExpirationTime(id);
+            if (!_hasBeenRedeemed.get(id) && balanceOf(_msgSender(), id) > 0) renovateExpirationTime(id);
         }
     }
 }

@@ -181,6 +181,7 @@ contract Vesting is Ownable {
         uint256 currentPositionId = _currentPositionId.current();
         userPositionIndexes[_beneficiary].push(currentPositionId);
         _currentPositionId.increment();
+        totalVesting += _amount;
 
         emit PositionCreated(
             _msgSender(),
