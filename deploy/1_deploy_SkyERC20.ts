@@ -1,4 +1,4 @@
-// 1_deploy_SkyERC20.ts: Deploy all contracts
+// 1_deploy_SkyERC20.ts: Deploy SkyERC20
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -17,11 +17,23 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
 
   // deploy SKY token
-  await deploy("SkyERC20", {
+  const constructorArgs = Object.values(skyErc20Args);
+  const deployResult = await deploy("SkyERC20", {
     from: deployer,
-    args: Object.values(skyErc20Args),
+    args: constructorArgs,
     log: true,
   });
+
+  if (deployResult.newlyDeployed) {
+    // Wait 5 confirmations
+    await hre.ethers.provider.waitForTransaction(<string>deployResult.transactionHash, 5);
+
+    // Verify contract
+    await hre.run("verify:verify", {
+      address: deployResult.address,
+      constructorArguments: constructorArgs,
+    });
+  }
 };
-func.tags = ["deploy", "SKY"];
+func.tags = ["deploy", "SkyToken", "SKY"];
 export default func;

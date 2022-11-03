@@ -1,4 +1,4 @@
-// 0_deploy_PioneerERC1155.ts: Deploy all contracts
+// 0_deploy_PioneerERC1155.ts: Deploy PioneerERC1155
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -62,5 +62,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 };
-func.tags = ["deploy", "pioneer"];
+func.tags = ["deploy", "PioneerNFT"];
 export default func;

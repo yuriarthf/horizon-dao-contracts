@@ -86,12 +86,12 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
     /// @dev Initialize RealEstateNFT
     /// @param _baseUri Base URI for the offchain NFT metadata
     /// @param _admin Address with contract administration privileges
-    /// @param _fakeOwner EOA to be used as OpenSea collection admin
+    /// @param _owner EOA to be used as OpenSea collection admin
     constructor(
         string memory _baseUri,
         address _admin,
-        address _fakeOwner
-    ) RoyalERC1155(_baseUri, _admin, _fakeOwner) {}
+        address _owner
+    ) RoyalERC1155(_baseUri, _admin, _owner) {}
 
     /// @notice Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {

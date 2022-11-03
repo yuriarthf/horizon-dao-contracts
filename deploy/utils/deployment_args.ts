@@ -43,3 +43,12 @@ export const skyErc20Args = {
   epochDurations: [], // Each of the epoch durations (the last epoch duration is infinite so n-1 values should be provided)
   rampValues: [], // How much the availableSupply will increase at each epoch start (n values)
 };
+
+/*************** FractionalRealEstateERC1155 ***************/
+export function fractionalRealEstateErc1155Args(network: string) {
+  return {
+    baseUri: "", // Base URI for the offchain NFT metadata
+    admin: horizonMultisig[network], // Address with contract administration privileges
+    owner: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // EOA to be used as OpenSea collection admin
+  };
+}
