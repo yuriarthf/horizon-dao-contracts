@@ -1,4 +1,4 @@
-// 0_deploy_CitizenshipERC1155.ts: Deploy all contracts
+// 0_deploy_PioneerERC1155.ts: Deploy all contracts
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -7,10 +7,10 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 // Import constructor arguments for the contracts
-import { citizenshipErc1155Args, privateClaim, whitelistSale, publicSaleOffset } from "./utils/deployment_args";
+import { pioneerErc1155Args, privateClaim, whitelistSale, publicSaleOffset } from "./utils/deployment_args";
 
-// Import citizenship merkle tree
-import { CitizenshipTree } from "../test/token/utils/citizenship_tree";
+// Import pioneer merkle tree
+import { PioneerTree } from "../test/token/utils/pioneer_tree";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get necessary hardhat-deploy functions
@@ -21,30 +21,30 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // deploy SKY token
   let deployResult;
-  const constructorArgs = citizenshipErc1155Args(hre.network.name);
-  if (process.env.CONFIG_CITIZENSHIP_CONTRACT) {
+  const constructorArgs = pioneerErc1155Args(hre.network.name);
+  if (process.env.CONFIG_pioneer_CONTRACT) {
     constructorArgs["admin"] = deployer;
-    deployResult = await deploy("CitizenshipERC1155", {
+    deployResult = await deploy("pioneerERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,
     });
 
     // get deployed contract
-    const citizenshipNft = await hre.ethers.getContractAt("CitizenshipERC1155", deployResult.address);
+    const pioneerNft = await hre.ethers.getContractAt("PioneerERC1155", deployResult.address);
 
     // Build merkle trees
-    const privateMerkleTree = new CitizenshipTree(privateClaim);
-    const whitelistedMerkleTree = new CitizenshipTree(whitelistSale);
+    const privateMerkleTree = new PioneerTree(privateClaim);
+    const whitelistedMerkleTree = new PioneerTree(whitelistSale);
 
     // Set merkle roots
-    await citizenshipNft.setPrivateRoot(privateMerkleTree.root);
-    await citizenshipNft.initializeSale(whitelistedMerkleTree.root, publicSaleOffset);
+    await pioneerNft.setPrivateRoot(privateMerkleTree.root);
+    await pioneerNft.initializeSale(whitelistedMerkleTree.root, publicSaleOffset);
 
     // Transfer admin to multisig
-    await citizenshipNft.setAdmin(citizenshipErc1155Args(hre.network.name).admin);
+    await pioneerNft.setAdmin(pioneerErc1155Args(hre.network.name).admin);
   } else {
-    deployResult = await deploy("CitizenshipERC1155", {
+    deployResult = await deploy("PioneerERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,
@@ -62,5 +62,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 };
-func.tags = ["deploy", "citizenship"];
+func.tags = ["deploy", "pioneer"];
 export default func;

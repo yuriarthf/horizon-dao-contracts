@@ -1,7 +1,7 @@
-// citizenship_tree.ts: Implements CitizenshipTree class to be used to
-// generate merkle roots to be set for the CitizenshipPromoERC1155 contract
+// pioneer_tree.ts: Implements PioneerTree and AirdropTree classes to be used to
+// generate merkle roots to be set for the PioneerERC1155 contract
 
-// Import MerkleTree class to build the citizenship merkle tree
+// Import MerkleTree class to build the pioneer merkle tree
 import { MerkleTree } from "merkletreejs";
 
 // Ethers for keccak256 hash
@@ -11,43 +11,43 @@ import ethers from "ethers";
 import type { Address, Airdrop } from "../../types";
 
 /**
- * @dev Used to get the whitelisted citizenships merkle roots (private claim and whitelist sale),
- *      to be set in the CitizenshipERC1155 contract.
+ * @dev Used to get the whitelisted merkle roots (private claim and whitelist sale),
+ *      to be set in the PioneerERC1155 contract.
  */
-export class CitizenshipTree {
-  readonly citizenshipTree: MerkleTree;
+export class PioneerTree {
+  readonly pioneerTree: MerkleTree;
   readonly accounts: Address[];
 
   /**
-   * @dev Build citizenship merkle tree
+   * @dev Build pioneer merkle tree
    * @param accounts Whitelisted accounts
    */
   constructor(accounts: Address[]) {
     this.accounts = accounts;
     const leaves = accounts.map((address) => ethers.utils.keccak256(address));
-    this.citizenshipTree = new MerkleTree(leaves, ethers.utils.keccak256);
+    this.pioneerTree = new MerkleTree(leaves, ethers.utils.keccak256);
   }
 
   /**
-   * @dev Get citizenship merkle tree leaves (whitelisted addresses)
+   * @dev Get pioneer merkle tree leaves (whitelisted addresses)
    */
   get leaves() {
     return this.accounts.map((address) => ethers.utils.keccak256(address));
   }
 
   /**
-   * @dev Get citizenship merkle tree root
+   * @dev Get pioneer merkle tree root
    */
   get root() {
-    return this.citizenshipTree.getHexRoot();
+    return this.pioneerTree.getHexRoot();
   }
 
   /**
    * @dev Get merkle proofs for a given leaf
-   * @param leaf Keccak256 hash of a citizenship merkle tree account
+   * @param leaf Keccak256 hash of a pioneer merkle tree account
    */
   proofs(leaf: string): string[] {
-    return this.citizenshipTree.getHexProof(leaf);
+    return this.pioneerTree.getHexProof(leaf);
   }
 
   /**
@@ -80,7 +80,7 @@ export class AirdropTree {
   }
 
   /**
-   * @dev Get citizenship merkle tree leaves (whitelisted addresses)
+   * @dev Get airdrop merkle tree leaves (whitelisted addresses)
    */
   get leaves() {
     return this.airdrops.map((airdrop) =>
@@ -89,7 +89,7 @@ export class AirdropTree {
   }
 
   /**
-   * @dev Get citizenship merkle tree root
+   * @dev Get airdrop merkle tree root
    */
   get root() {
     return this.airdropTree.getHexRoot();
@@ -97,7 +97,7 @@ export class AirdropTree {
 
   /**
    * @dev Get merkle proofs for a given leaf
-   * @param leaf Keccak256 hash of a citizenship merkle tree account
+   * @param leaf Keccak256 hash of a airdrop merkle tree account
    */
   proofs(leaf: string): string[] {
     return this.airdropTree.getHexProof(leaf);

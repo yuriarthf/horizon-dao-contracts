@@ -12,9 +12,9 @@ const horizonMultisig: { [network: string]: string } = {
   goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
 };
 
-/*************** CitizenshipERC1155 ***************/
+/*************** PioneerERC1155 ***************/
 // Constructor args
-export function citizenshipErc1155Args(network: string) {
+export function pioneerErc1155Args(network: string) {
   return {
     imageUri: "", // Image base URI, will be suffixed by collection ID (should return the collection image)
     admin: horizonMultisig[network], // Collection admin address (HorizonDAO Multisig)

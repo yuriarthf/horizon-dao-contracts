@@ -30,19 +30,16 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
     /// @dev Address responsible to move expired accounts tokens
     address public liquidator;
 
-    /// @dev mapping (tokenId => tokenName)
-    mapping(uint256 => string) public tokenName;
+    /// @dev mapping (collectionId => collectionName)
+    mapping(uint256 => string) public collectionName;
 
-    /// @dev mapping (tokenId => tokenSymbol)
-    mapping(uint256 => string) public tokenSymbol;
+    /// @dev mapping (collectionId => collectionSymbol)
+    mapping(uint256 => string) public collectionSymbol;
 
-    /// @dev mapping (tokenId => tokenMaxSupply)
-    BitMaps.BitMap private _tokensClaimed;
-
-    /// @dev mapping (tokenId => renovationTime)
+    /// @dev mapping (collectionId => renovationTime)
     /// @dev When users renovate it's signature on reNFTs ownership
-    /// users' expiration time will be extended to current_time + tokenRenovationTime
-    mapping(uint256 => uint256) public tokenRenovationTime;
+    /// users' expiration time will be extended to current_time + collectionRenovationTime
+    mapping(uint256 => uint256) public collectionRenovationTime;
 
     /// @dev mapping (tokenId => account => expiration time)
     /// @dev Users' reNFTs can be put to auction after current_time >= accountExpirationTime,
@@ -66,7 +63,7 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
     event RenovationTimeUpdated(uint256 indexed _id, address indexed _account, uint256 _updatedAt, uint256 _extendedTo);
 
     /// @dev Emitted when a new reNFT collection metadata is configured
-    event SetTokenMetadata(uint256 indexed _id, string _name, string _symbol, uint256 _renovationTime);
+    event SetCollectionMetadata(uint256 indexed _id, string _name, string _symbol, uint256 _renovationTime);
 
     /// @dev Emitted when a new minter is set
     event NewMinter(address indexed _minter);
@@ -108,9 +105,9 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
 
     /// @notice Returns the URI for the given reNFT collection
     /// @param _id Collection ID
-    /// @return Concatenated BaseUri and tokenId
+    /// @return Concatenated BaseUri and collectionId
     function uri(uint256 _id) public view override returns (string memory) {
-        require(exists(_id), "Non-existent token id");
+        require(exists(_id), "Non-existent collection id");
         return string(abi.encodePacked(super.uri(_id), Strings.toString(_id)));
     }
 
@@ -157,7 +154,7 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
     /// @param _name New collection name
     /// @param _symbol New collection symbol
     /// @param _renovationTime The amount of time an user is required to check-in
-    function setTokenMetadata(
+    function setCollectionMetadata(
         uint256 _id,
         string memory _name,
         string memory _symbol,
@@ -166,11 +163,11 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
         require(_msgSender() == minter, "!minter");
         require(!_metadataInitialized.get(_id), "metadataInitialized");
 
-        tokenName[_id] = _name;
-        tokenSymbol[_id] = _symbol;
-        tokenRenovationTime[_id] = _renovationTime;
+        collectionName[_id] = _name;
+        collectionSymbol[_id] = _symbol;
+        collectionRenovationTime[_id] = _renovationTime;
         _metadataInitialized.set(_id);
-        emit SetTokenMetadata(_id, _name, _symbol, _renovationTime);
+        emit SetCollectionMetadata(_id, _name, _symbol, _renovationTime);
     }
 
     /// @dev Toggle renovation requirements for a contract
@@ -199,7 +196,7 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
             _currentId.increment();
         }
         _mint(_to, _id, _amount, bytes(""));
-        uint256 updatedExpirationTime = block.timestamp + tokenRenovationTime[_id];
+        uint256 updatedExpirationTime = block.timestamp + collectionRenovationTime[_id];
         accountExpirationTime[_id][_to] = updatedExpirationTime;
         emit RenovationTimeUpdated(_id, _to, block.timestamp, updatedExpirationTime);
         emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
@@ -222,7 +219,7 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     function renovateExpirationTime(uint256 _id) public {
         require(balanceOf(_msgSender(), _id) > 0, "No balance");
-        uint256 updatedExpirationTime = block.timestamp + tokenRenovationTime[_id];
+        uint256 updatedExpirationTime = block.timestamp + collectionRenovationTime[_id];
         accountExpirationTime[_id][_msgSender()] = updatedExpirationTime;
         emit RenovationTimeUpdated(_id, _msgSender(), block.timestamp, updatedExpirationTime);
     }
