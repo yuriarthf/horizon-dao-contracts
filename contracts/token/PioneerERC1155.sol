@@ -6,42 +6,40 @@ import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
-/// @title Horizon DAO Citizenship NFTs
-/// @author Horizon DAO (Yuri Fernandes)
-/// @notice Citizenship NFTs which will be added utility
-///     during development of HorizonDAO protocol
-contract CitizenshipERC1155 is RoyalERC1155 {
+/// @title HorizonDAO Pioneer NFT
+/// @author Yuri Fernandes (HorizonDAO)
+/// @notice NFTs owned by HorizonDAO pioneer members
+/// @notice Holding these NFTs will accrue into various rewards
+///     during HorizonDAO development, such as, for example Airdrops
+contract PioneerERC1155 is RoyalERC1155 {
     using Strings for uint256;
 
-    /// @dev Citizenship types
-    enum Citizenship {
+    /// @dev Pioneer types
+    enum Pioneer {
         BRONZE,
         SILVER,
         GOLD
     }
 
     /// @dev Total number of tokens that can be purchased
-    uint256 public constant PURCHASABLE_SUPPLY = 10406;
+    uint256 public constant PURCHASABLE_SUPPLY = 10446;
 
     /// @dev How many tokens can be purchased during Whitelisted sale
     uint256 public constant WHITELIST_MAX_PURCHASES = 1000;
 
     /// @dev How many tokens whitelisted users can purchase
-    uint256 public constant WHITELIST_PURCHASE_PER_ADDRESS = 2;
+    uint256 public constant WHITELIST_PURCHASE_PER_ADDRESS = 10;
 
     /// @dev Maximum amount of tokens users can get from private claim
-    uint256 public constant PRIVATE_MAX_CLAIMS = 44;
+    uint256 public constant PRIVATE_MAX_CLAIMS = 4;
 
     /// @dev Total claimable amount of tokens through airdrops
     uint256 public constant AIRDROP_MAX_CLAIMS = 100;
 
-    /// @dev How many Gold citizenships a user can get from private claim
+    /// @dev How many Gold Pioneers a user can get from private claim
     uint256 public constant PRIVATE_CLAIM_GOLD = 1;
 
-    /// @dev How many Silver citizenships a private sale user can claim
-    uint256 public constant PRIVATE_CLAIM_SILVER = 10;
-
-    /// @dev Represents 100% chance, there will be 3 Citizenship collection
+    /// @dev Represents 100% chance, there will be 3 Pioneer collection
     ///     with decreasing chances to be minted during purchases
     ///     the total chances should sum to MAX_CHANCE
     uint256 public constant MAX_CHANCE = 1_000;
@@ -55,8 +53,8 @@ contract CitizenshipERC1155 is RoyalERC1155 {
     /// @dev Amount of NFTs that have been purchased so far
     uint256 public purchasedAmount;
 
-    /// @dev Calculated pseudo-random number should fall in range to acquire a certain citizenship
-    mapping(Citizenship => uint256) public thresholds;
+    /// @dev Calculated pseudo-random number should fall in range to acquire a certain Pioneer
+    mapping(Pioneer => uint256) public thresholds;
 
     /// @dev Private Merkle Root (can be set once)
     bytes32 public privateMerkleRoot;
@@ -100,21 +98,16 @@ contract CitizenshipERC1155 is RoyalERC1155 {
     /// @dev Emitted when ethers are withdrawn from the contract
     event Withdrawal(address indexed _admin, address indexed _to, uint256 _amount);
 
-    /// @dev Emitted when an amount of citizenship NFTs are claimed
-    event CitizenshipClaimed(
-        address indexed _by,
-        Citizenship indexed _citizenship,
-        bool indexed _isWhitelist,
-        uint256 _amount
-    );
+    /// @dev Emitted when an amount of Pioneer NFTs are claimed
+    event PioneerClaimed(address indexed _by, Pioneer indexed _Pioneer, bool indexed _isWhitelist, uint256 _amount);
 
-    /// @dev constructor to initialize CitizenshipPromoERC1155 contract
+    /// @dev constructor to initialize PioneerPromoERC1155 contract
     /// @param _imageUri Base image URI
     /// @param _admin Adminstrative address, can execute various configuration related functions
     /// @param _owner Should be an EOA, will have rights over OpenSea collection configuration
     /// @param _publicTokenUnitPrice Price per token for Public Sale
     /// @param _whitelistTokenUnitPrice Price per token for Whitelisted Sale
-    /// @param _chances Array with the chances of getting a citizenship for each collection
+    /// @param _chances Array with the chances of getting a Pioneer for each collection
     constructor(
         string memory _imageUri,
         address _admin,
@@ -128,11 +121,11 @@ contract CitizenshipERC1155 is RoyalERC1155 {
         for (uint8 i = 0; i < _chances.length; i++) {
             if (i > 0) {
                 require(_chances[i - 1] >= _chances[i], "Invalid _chance array");
-                thresholds[Citizenship(i)] += thresholds[Citizenship(i - 1)];
+                thresholds[Pioneer(i)] += thresholds[Pioneer(i - 1)];
             }
-            thresholds[Citizenship(i)] += _chances[i];
+            thresholds[Pioneer(i)] += _chances[i];
         }
-        require(thresholds[Citizenship.GOLD] == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
+        require(thresholds[Pioneer.GOLD] == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
         publicTokenUnitPrice = _publicTokenUnitPrice;
         whitelistTokenUnitPrice = _whitelistTokenUnitPrice;
         emit NewImageUri(msg.sender, _imageUri);
@@ -167,19 +160,19 @@ contract CitizenshipERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Collection name
     function collectionName(uint256 _id) public pure returns (string memory) {
-        require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
-        if (_id == uint256(Citizenship.BRONZE)) return "Bronze Citizenship";
-        if (_id == uint256(Citizenship.GOLD)) return "Silver Citizenship";
-        return "Gold Citizenship";
+        require(_id >= uint256(Pioneer.BRONZE) && _id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        if (_id == uint256(Pioneer.BRONZE)) return "Bronze Pioneer";
+        if (_id == uint256(Pioneer.GOLD)) return "Silver Pioneer";
+        return "Gold Pioneer";
     }
 
     /// @notice Get collection description
     /// @param _id Collection ID
     /// @return Collection description
     function collectionDescription(uint256 _id) public pure returns (string memory) {
-        require(_id >= uint256(Citizenship.BRONZE) && _id <= uint256(Citizenship.GOLD), "Invalid token ID");
-        if (_id == uint256(Citizenship.BRONZE)) return "";
-        if (_id == uint256(Citizenship.GOLD)) return "";
+        require(_id >= uint256(Pioneer.BRONZE) && _id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        if (_id == uint256(Pioneer.BRONZE)) return "";
+        if (_id == uint256(Pioneer.GOLD)) return "";
         return "";
     }
 
@@ -241,11 +234,9 @@ contract CitizenshipERC1155 is RoyalERC1155 {
     function privateClaim(bytes32[] memory _proof) external {
         require(MerkleProof.verify(_proof, privateMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "!root");
         require(!userPrivateClaimed[msg.sender], "claimed");
-        _mint(msg.sender, uint256(Citizenship.GOLD), PRIVATE_CLAIM_GOLD, bytes(""));
-        _mint(msg.sender, uint256(Citizenship.SILVER), PRIVATE_CLAIM_SILVER, bytes(""));
+        _mint(msg.sender, uint256(Pioneer.GOLD), PRIVATE_CLAIM_GOLD, bytes(""));
         userPrivateClaimed[msg.sender] = true;
-        emit CitizenshipClaimed(msg.sender, Citizenship.GOLD, false, PRIVATE_CLAIM_GOLD);
-        emit CitizenshipClaimed(msg.sender, Citizenship.SILVER, false, PRIVATE_CLAIM_SILVER);
+        emit PioneerClaimed(msg.sender, Pioneer.GOLD, false, PRIVATE_CLAIM_GOLD);
     }
 
     /// @notice Purchase whilelisted tokens (maximum amount: WHITELIST_PURCHASE_PER_ADDRESS)
@@ -264,7 +255,7 @@ contract CitizenshipERC1155 is RoyalERC1155 {
         purchasedAmount += _amount;
     }
 
-    /// @notice Purchase citizenship NFTs randomly from the 3 collections (Bronze, Silver and Gold)
+    /// @notice Purchase Pioneer NFTs randomly from the 3 collections (Bronze, Silver and Gold)
     /// @param _amount Amount to purchase
     function publicPurchase(uint256 _amount) external payable {
         require(publicSaleStarted(), "!start");
@@ -320,8 +311,8 @@ contract CitizenshipERC1155 is RoyalERC1155 {
         uint256[3] memory amounts;
         for (uint256 i = 0; i < _amount; i++) {
             chance = magicValue % MAX_CHANCE;
-            if (chance < thresholds[Citizenship.BRONZE]) ++amounts[0];
-            else if (chance < thresholds[Citizenship.SILVER]) ++amounts[1];
+            if (chance < thresholds[Pioneer.BRONZE]) ++amounts[0];
+            else if (chance < thresholds[Pioneer.SILVER]) ++amounts[1];
             else ++amounts[2];
             magicValue = uint256(keccak256(abi.encodePacked(magicValue / MAX_CHANCE)));
         }
@@ -329,7 +320,7 @@ contract CitizenshipERC1155 is RoyalERC1155 {
         for (uint8 i = 0; i < amounts.length; i++) {
             if (amounts[i] == 0) continue;
             _mint(msg.sender, i, amounts[i], bytes(""));
-            emit CitizenshipClaimed(msg.sender, Citizenship(i), false, amounts[i]);
+            emit PioneerClaimed(msg.sender, Pioneer(i), false, amounts[i]);
         }
         uint256 surplus = msg.value - totalPrice;
         if (surplus > 0) _sendValue(msg.sender, surplus);
