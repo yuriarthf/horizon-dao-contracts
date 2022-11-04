@@ -98,8 +98,20 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @dev Emitted when ethers are withdrawn from the contract
     event Withdrawal(address indexed _admin, address indexed _to, uint256 _amount);
 
+    /// @dev Emitted when a PioneerNFT is purchased
+    event PioneerClaim(address indexed _by, Pioneer indexed _Pioneer, uint256 _unitPrice, uint256 _amount);
+
     /// @dev Emitted when an amount of Pioneer NFTs are claimed
-    event PioneerClaimed(address indexed _by, Pioneer indexed _Pioneer, bool indexed _isWhitelist, uint256 _amount);
+    event PrivateClaim(address indexed _by);
+
+    /// @dev Emitted when tokens are purchased via whitelistPurchase function
+    event WhitelistPurchase(address indexed _by, uint256 _amount);
+
+    /// @dev Emitted when tokens are purchased via publicPurchase function
+    event PublicPurchase(address indexed _by, uint256 _amount);
+
+    /// @dev Emitted when
+    event AirdropClaim(address indexed _by, uint256 _amount);
 
     /// @dev constructor to initialize PioneerPromoERC1155 contract
     /// @param _imageUri Base image URI
@@ -128,7 +140,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         require(thresholds[Pioneer.GOLD] == MAX_CHANCE, "_chances sum should be MAX_CHANCE");
         publicTokenUnitPrice = _publicTokenUnitPrice;
         whitelistTokenUnitPrice = _whitelistTokenUnitPrice;
-        emit NewImageUri(msg.sender, _imageUri);
+        emit NewImageUri(_msgSender(), _imageUri);
     }
 
     /// @notice Returns the Base64 encoded metadata for a given collection
@@ -204,7 +216,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         require(_whitelistMerkleRoot != bytes32(0), "Invalid Merkle root");
         whitelistMerkleRoot = _whitelistMerkleRoot;
         publicSaleStartTime = block.timestamp + _publicSaleOffset;
-        emit SaleInitialized(msg.sender, _whitelistMerkleRoot, block.timestamp + _publicSaleOffset);
+        emit SaleInitialized(_msgSender(), _whitelistMerkleRoot, block.timestamp + _publicSaleOffset);
     }
 
     /// @dev Set Private claiming merkle root (only once)
@@ -212,7 +224,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     function setPrivateRoot(bytes32 _root) external onlyAdmin {
         require(privateMerkleRoot == bytes32(0), "Merkle root already set");
         privateMerkleRoot = _root;
-        emit PrivateMerkleRootSet(msg.sender, _root);
+        emit PrivateMerkleRootSet(_msgSender(), _root);
     }
 
     /// @dev Set Airdrop merkle root (multiple times)
@@ -220,24 +232,24 @@ contract PioneerERC1155 is RoyalERC1155 {
     function setAirdropRoot(bytes32 _root) external onlyAdmin {
         require(airdropClaimed < AIRDROP_MAX_CLAIMS, "!airdrop");
         airdropMerkleRoot = _root;
-        emit AirdropMerkleRootSet(msg.sender, ++airdropNonce, _root);
+        emit AirdropMerkleRootSet(_msgSender(), ++airdropNonce, _root);
     }
 
     /// @dev Set new base image URI for collections
     /// @param _uri Base image URI
     function setImageBaseURI(string memory _uri) external onlyAdmin {
         _setURI(_uri);
-        emit NewImageUri(msg.sender, _uri);
+        emit NewImageUri(_msgSender(), _uri);
     }
 
     /// @notice Claim private whitelisted tokens
     /// @param _proof Private Merkle Proof
     function privateClaim(bytes32[] memory _proof) external {
-        require(MerkleProof.verify(_proof, privateMerkleRoot, keccak256(abi.encodePacked(msg.sender))), "!root");
-        require(!userPrivateClaimed[msg.sender], "claimed");
-        _mint(msg.sender, uint256(Pioneer.GOLD), PRIVATE_CLAIM_GOLD, bytes(""));
-        userPrivateClaimed[msg.sender] = true;
-        emit PioneerClaimed(msg.sender, Pioneer.GOLD, false, PRIVATE_CLAIM_GOLD);
+        require(MerkleProof.verify(_proof, privateMerkleRoot, keccak256(abi.encodePacked(_msgSender()))), "!root");
+        require(!userPrivateClaimed[_msgSender()], "claimed");
+        _mint(_msgSender(), uint256(Pioneer.GOLD), PRIVATE_CLAIM_GOLD, bytes(""));
+        userPrivateClaimed[_msgSender()] = true;
+        emit PrivateClaim(_msgSender());
     }
 
     /// @notice Purchase whilelisted tokens (maximum amount: WHITELIST_PURCHASE_PER_ADDRESS)
@@ -245,15 +257,16 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _proof Whitelist Merkle Proof
     function whitelistPurchase(uint256 _amount, bytes32[] memory _proof) external payable {
         require(whitelistMerkleRoot != bytes32(0), "!initialized");
-        require(MerkleProof.verify(_proof, whitelistMerkleRoot, keccak256(abi.encodePacked(msg.sender))));
+        require(MerkleProof.verify(_proof, whitelistMerkleRoot, keccak256(abi.encodePacked(_msgSender()))), "!root");
         require(purchasedAmount + _amount <= PURCHASABLE_SUPPLY, "!purchase");
         require(
-            userWhitelistPurchasedAmount[msg.sender] + _amount <= WHITELIST_PURCHASE_PER_ADDRESS,
+            userWhitelistPurchasedAmount[_msgSender()] + _amount <= WHITELIST_PURCHASE_PER_ADDRESS,
             "Maximum amount purchased"
         );
         _processPurchaseRequest(whitelistTokenUnitPrice, _amount);
-        userWhitelistPurchasedAmount[msg.sender] += _amount;
+        userWhitelistPurchasedAmount[_msgSender()] += _amount;
         purchasedAmount += _amount;
+        emit WhitelistPurchase(_msgSender(), _amount);
     }
 
     /// @notice Purchase Pioneer NFTs randomly from the 3 collections (Bronze, Silver and Gold)
@@ -263,6 +276,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         require(purchasedAmount + _amount <= PURCHASABLE_SUPPLY, "!purchase");
         _processPurchaseRequest(publicTokenUnitPrice, _amount);
         purchasedAmount += _amount;
+        emit PublicPurchase(_msgSender(), _amount);
     }
 
     /// @notice Claim airdrop
@@ -270,15 +284,16 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _proof Airdrop Merkle Proof
     function claimAirdrop(uint256 _amount, bytes32[] memory _proof) external {
         require(
-            MerkleProof.verify(_proof, airdropMerkleRoot, keccak256(abi.encodePacked(msg.sender, _amount))),
+            MerkleProof.verify(_proof, airdropMerkleRoot, keccak256(abi.encodePacked(_msgSender(), _amount))),
             "!merkleRoot"
         );
         require(airdropClaimed + _amount < AIRDROP_MAX_CLAIMS, "!airdrop");
         uint256 airdropNonce_ = airdropNonce;
-        require(userAirdropNonce[msg.sender] < airdropNonce_, "!userNonce");
+        require(userAirdropNonce[_msgSender()] < airdropNonce_, "!userNonce");
         _processPurchaseRequest(0, _amount);
         airdropClaimed += _amount;
-        userAirdropNonce[msg.sender] = airdropNonce_;
+        userAirdropNonce[_msgSender()] = airdropNonce_;
+        emit AirdropClaim(_msgSender(), _amount);
     }
 
     /// @dev Withdraw all ethers from contract
@@ -287,7 +302,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         uint256 etherBalance = address(this).balance;
         require(etherBalance > 0, "No ethers to withdraw");
         _sendValue(_to, etherBalance);
-        emit Withdrawal(msg.sender, _to, etherBalance);
+        emit Withdrawal(_msgSender(), _to, etherBalance);
     }
 
     /// @dev Utility function to send an amount of ethers to a given address
@@ -305,7 +320,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         uint256 totalPrice = _amount * _tokenUnitPrice;
         require(msg.value >= totalPrice, "Not enough ethers");
         uint256 magicValue = uint256(
-            keccak256(abi.encodePacked(msg.sender, block.timestamp, _amount, purchasedAmount))
+            keccak256(abi.encodePacked(_msgSender(), block.timestamp, _amount, purchasedAmount))
         );
 
         uint256 chance;
@@ -320,10 +335,10 @@ contract PioneerERC1155 is RoyalERC1155 {
 
         for (uint8 i = 0; i < amounts.length; i++) {
             if (amounts[i] == 0) continue;
-            _mint(msg.sender, i, amounts[i], bytes(""));
-            emit PioneerClaimed(msg.sender, Pioneer(i), false, amounts[i]);
+            _mint(_msgSender(), i, amounts[i], bytes(""));
+            emit PioneerClaim(_msgSender(), Pioneer(i), _tokenUnitPrice, amounts[i]);
         }
         uint256 surplus = msg.value - totalPrice;
-        if (surplus > 0) _sendValue(msg.sender, surplus);
+        if (surplus > 0) _sendValue(_msgSender(), surplus);
     }
 }

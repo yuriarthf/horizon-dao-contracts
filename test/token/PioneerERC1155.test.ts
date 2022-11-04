@@ -17,6 +17,7 @@ import { ethers } from "hardhat";
 
 // Get BigNumber
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { Wallet } from "@ethersproject/wallet";
 import { Signer } from "@ethersproject/abstract-signer";
 
 // Import BigNumber utility functions
@@ -36,6 +37,9 @@ describe("PioneerERC1155 Unit Tests", () => {
   const PUBLIC_TOKEN_UNIT_PRICE = ethers.utils.parseEther("0.15");
   const WHITELIST_TOKEN_UNIT_PRICE = ethers.utils.parseEther("0.1");
   const CHANCES = [948, 47, 5].map((chance) => BigNumber.from(chance));
+
+  const PUBLIC_SALE_OFFSET = BigNumber.from("604800");
+  const NUMBER_OF_WHITELISTED_WALLETS = 50;
 
   enum Pioneer {
     BRONZE,
@@ -240,8 +244,8 @@ describe("PioneerERC1155 Unit Tests", () => {
       // claim tokens
       for (let i = 0; i < privateSigners.length; i++) {
         await expect(pioneerToken.connect(privateSigners[i]).privateClaim(privateWhitelistTree.proofsFromIndex(i)))
-          .to.emit(pioneerToken, "PioneerClaimed")
-          .withArgs(await privateSigners[i].getAddress(), Pioneer.GOLD, false, 1);
+          .to.emit(pioneerToken, "PrivateClaim")
+          .withArgs(await privateSigners[i].getAddress());
         expect(await pioneerToken.userPrivateClaimed(privateSigners[i].getAddress())).to.be.true;
         expect(await pioneerToken.balanceOf(privateSigners[i].getAddress(), Pioneer.GOLD)).to.be.equal(
           BigNumber.from(1),
@@ -261,6 +265,97 @@ describe("PioneerERC1155 Unit Tests", () => {
       await expect(pioneerToken.connect(user).privateClaim(privateWhitelistTree.proofsFromIndex(0))).to.be.revertedWith(
         "!root",
       );
+    });
+  });
+
+  it("initializeSale: revert if merkle root is zero", async () => {
+    // should revert with "Invalid Merkle root" message
+    await expect(
+      pioneerToken
+        .connect(admin)
+        .initializeSale(ethers.utils.hexZeroPad(ethers.utils.hexlify(0), 32), PUBLIC_SALE_OFFSET),
+    ).to.be.revertedWith("Invalid Merkle root");
+  });
+
+  describe("Sale begins", () => {
+    let whitelistedWallets: Wallet[];
+    let whitelistedMerkleTree: PioneerTree;
+
+    const AMOUNT_TO_PURCHASE = BigNumber.from(1);
+
+    before(async () => {
+      // get random whitelisted wallets
+      const [, , , , , fundingSigner] = await ethers.getSigners();
+      const etherPerWallet = (await fundingSigner.getBalance()).div(NUMBER_OF_WHITELISTED_WALLETS);
+      whitelistedWallets = [];
+      const whitelisteAddresses = [];
+      for (let i = 0; i < NUMBER_OF_WHITELISTED_WALLETS; i++) {
+        whitelistedWallets.push(ethers.Wallet.createRandom().connect(ethers.provider));
+        fundingSigner.sendTransaction({
+          to: await whitelistedWallets[i].getAddress(),
+          value: etherPerWallet,
+          maxFeePerGas: 0,
+        });
+        whitelisteAddresses.push(await whitelistedWallets[i].getAddress());
+      }
+
+      // create merkle tree
+      whitelistedMerkleTree = new PioneerTree(whitelisteAddresses);
+    });
+
+    it("whitelistPurchase: should revert with error message '!initialized' before sale initialization", async () => {
+      // should revert with "!initialized" message
+      await expect(
+        pioneerToken.connect(whitelistedWallets[0]).whitelistPurchase(2, whitelistedMerkleTree.proofsFromIndex(0)),
+      ).to.be.revertedWith("!initialized");
+    });
+
+    it("initializeSale: should emit 'SaleInitialized' when successful", async () => {
+      // should emit "SaleInitialized" event
+      await expect(pioneerToken.connect(admin).initializeSale(whitelistedMerkleTree.root, PUBLIC_SALE_OFFSET)).to.emit(
+        pioneerToken,
+        "SaleInitialized",
+      );
+    });
+
+    it("publicSaleStarted: should return false, since block.timestamp < publicSaleStartTime", async () => {
+      // should be false
+      expect(await pioneerToken.publicSaleStarted()).to.be.false;
+    });
+
+    it("initializeSale: should revert with message 'Merkle root already set' if already initialized", async () => {
+      // should revert with "Merkle root already set"
+      await expect(
+        pioneerToken.connect(admin).initializeSale(whitelistedMerkleTree.root, PUBLIC_SALE_OFFSET),
+      ).to.be.revertedWith("Merkle root already set");
+    });
+
+    it("whitelistPurchase: should emit 'WhitelistPurchase' event when successful", async () => {
+      // purchase only one token per accouns
+      for (let i = 0; i < whitelistedWallets.length; i++) {
+        await expect(
+          pioneerToken
+            .connect(whitelistedWallets[i])
+            .whitelistPurchase(AMOUNT_TO_PURCHASE, whitelistedMerkleTree.proofsFromIndex(i), {
+              value: WHITELIST_TOKEN_UNIT_PRICE.mul(AMOUNT_TO_PURCHASE),
+            }),
+        )
+          .to.emit(pioneerToken, "WhitelistPurchase")
+          .withArgs(await whitelistedWallets[i].getAddress(), AMOUNT_TO_PURCHASE);
+        let balanceSum = BigNumber.from(0);
+        for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++)
+          balanceSum = balanceSum.add(await pioneerToken.balanceOf(whitelistedWallets[i].getAddress(), id));
+        expect(balanceSum).to.be.equal(BigNumber.from(1));
+      }
+    });
+
+    it("whitelistPurchase: should revert with '!root' if caller is not authorized", async () => {
+      // should revert with "!root" message
+      await expect(
+        pioneerToken.whitelistPurchase(AMOUNT_TO_PURCHASE, whitelistedMerkleTree.proofsFromIndex(0), {
+          value: WHITELIST_TOKEN_UNIT_PRICE.mul(AMOUNT_TO_PURCHASE),
+        }),
+      ).to.be.revertedWith("!root");
     });
   });
 });
