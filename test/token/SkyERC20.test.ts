@@ -1,4 +1,4 @@
-// skyERC20.ts: Unit tests for SkyERC20 token
+// skyERC20.tests.ts: Unit tests for SkyERC20 token
 
 // Solidity extension for chai
 import { solidity } from "ethereum-waffle";
@@ -30,13 +30,9 @@ describe("SkyERC20 Unit Tests", () => {
   let user: Signer;
   let newAdmin: Signer;
 
-  function addDecimalPoints(num: number, decimals = 18): BigNumber {
-    return BigNumber.from(num).mul(BigNumber.from(10).pow(decimals));
-  }
-
   const oneMonth = 2630000; // 1 month in seconds
 
-  const maxSupply = addDecimalPoints(100000000);
+  const maxSupply = ethers.utils.parseEther("100000000");
   const numberOfEpochs = 5;
   const initialEpochStartOffset = 86400; // 1 day in seconds
   let firstEpochStartTime: number;

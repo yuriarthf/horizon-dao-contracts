@@ -9,13 +9,13 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { RoyalERC1155 } from "./RoyalERC1155.sol";
 
-/// @title Fractional Real Estate NFT
+/// @title Real Estate NFT
 /// @author Yuri Fernandes (HorizonDAO)
 /// @notice Used to Tokenize and Fractionate Real Estate
 /// @notice Users are required to renovate (check-in) after a certain amount of time
 ///     or their assets can be liquidated (necessary since reNFT holders can claim deeds if a buyout occur)
 /// @notice Only a predefined minter can mint tokens and on a incremental order
-contract FractionalRealEstateERC1155 is RoyalERC1155 {
+contract RealEstateERC1155 is RoyalERC1155 {
     using BitMaps for BitMaps.BitMap;
     using Counters for Counters.Counter;
     using Strings for uint256;
@@ -95,7 +95,7 @@ contract FractionalRealEstateERC1155 is RoyalERC1155 {
 
     /// @notice Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {
-        return "Fractional Real Estate NFT";
+        return "Real Estate NFT";
     }
 
     /// @notice Returns the symbol of the RealEstateERC1155 contract

@@ -116,7 +116,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         uint256 _whitelistTokenUnitPrice,
         uint256[3] memory _chances
     ) RoyalERC1155(_imageUri, _admin, _owner) {
-        require(_admin != address(0), "!admin");
+        require(_admin != address(0), "Admin should not be ZERO ADDRESS");
         require(_whitelistTokenUnitPrice < _publicTokenUnitPrice, "No discount applied");
         for (uint8 i = 0; i < _chances.length; i++) {
             if (i > 0) {
