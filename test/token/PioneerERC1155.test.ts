@@ -34,6 +34,50 @@ describe("PioneerERC1155 Unit Tests", () => {
   const WHITELIST_TOKEN_UNIT_PRICE = ethers.utils.parseEther("0.1");
   const CHANCES = [948, 47, 5].map((chance) => BigNumber.from(chance));
 
+  enum Pioneer {
+    BRONZE,
+    SILVER,
+    GOLD,
+  }
+
+  function collectionName(id: Pioneer) {
+    switch (id) {
+      case Pioneer.BRONZE:
+        return "Bronze Horizon Pioneer Badge";
+      case Pioneer.SILVER:
+        return "Silver Horizon Pioneer Badge";
+      case Pioneer.GOLD:
+        return "Gold Horizon Pioneer Badge";
+      default:
+        throw new Error("Invalid id");
+    }
+  }
+
+  function collectionDescription(id: Pioneer) {
+    switch (id) {
+      case Pioneer.BRONZE:
+        return "";
+      case Pioneer.SILVER:
+        return "";
+      case Pioneer.GOLD:
+        return "";
+      default:
+        throw new Error("Invalid id");
+    }
+  }
+
+  function collectionMetadata(id: Pioneer) {
+    return JSON.stringify({
+      name: collectionName(id),
+      description: collectionDescription(id),
+      image: IMAGE_URI + id.toString(),
+    });
+  }
+
+  function uri(id: Pioneer) {
+    return `data:application/json;base64,${Buffer.from(collectionMetadata(id)).toString("base64")}`;
+  }
+
   before(async () => {
     // get deployer address
     [deployer, admin, owner, user] = await ethers.getSigners();
@@ -110,5 +154,38 @@ describe("PioneerERC1155 Unit Tests", () => {
       // Should revert with "No discount applied" message
       await expect(deployTransaction).to.be.revertedWith("_chances sum should be MAX_CHANCE");
     });
+  });
+
+  it("Check imageURI", async () => {
+    // get imageUri
+    let imageUri: string;
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      imageUri = await pioneerToken.imageURI(id);
+      expect(imageUri).to.be.equal(IMAGE_URI + id.toString());
+    }
+  });
+
+  it("Check collectionName", async () => {
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionName(id)).to.be.equal(collectionName(id));
+    }
+  });
+
+  it("Check collectionDescription", async () => {
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionDescription(id)).to.be.equal(collectionDescription(id));
+    }
+  });
+
+  it("Check collectionMetadata", async () => {
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionMetadata(id)).to.be.equal(collectionMetadata(id));
+    }
+  });
+
+  it("Check uri", async () => {
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.uri(id)).to.be.equal(uri(id));
+    }
   });
 });

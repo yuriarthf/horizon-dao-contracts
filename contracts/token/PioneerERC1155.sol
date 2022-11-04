@@ -135,6 +135,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Base64 encoded metadata
     function uri(uint256 _id) public view override returns (string memory) {
+        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(collectionMetadata(_id)))));
     }
 
@@ -145,13 +146,13 @@ contract PioneerERC1155 is RoyalERC1155 {
         return
             string(
                 abi.encodePacked(
-                    '{ "name": "',
+                    '{"name":"',
                     collectionName(_id),
-                    '", "description": "',
+                    '","description":"',
                     collectionDescription(_id),
-                    '", "image": "',
+                    '","image":"',
                     imageURI(_id),
-                    '" }'
+                    '"}'
                 )
             );
     }
@@ -160,19 +161,19 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Collection name
     function collectionName(uint256 _id) public pure returns (string memory) {
-        require(_id >= uint256(Pioneer.BRONZE) && _id <= uint256(Pioneer.GOLD), "Invalid token ID");
-        if (_id == uint256(Pioneer.BRONZE)) return "Bronze Pioneer";
-        if (_id == uint256(Pioneer.GOLD)) return "Silver Pioneer";
-        return "Gold Pioneer";
+        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        if (_id == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
+        if (_id == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
+        return "Gold Horizon Pioneer Badge";
     }
 
     /// @notice Get collection description
     /// @param _id Collection ID
     /// @return Collection description
     function collectionDescription(uint256 _id) public pure returns (string memory) {
-        require(_id >= uint256(Pioneer.BRONZE) && _id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
         if (_id == uint256(Pioneer.BRONZE)) return "";
-        if (_id == uint256(Pioneer.GOLD)) return "";
+        if (_id == uint256(Pioneer.SILVER)) return "";
         return "";
     }
 
