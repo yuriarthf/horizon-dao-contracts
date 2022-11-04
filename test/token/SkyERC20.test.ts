@@ -67,6 +67,16 @@ describe("SkyERC20 Unit Tests", () => {
     await skyToken.connect(admin).setMinter(minter.getAddress());
   });
 
+  it("Supported interfaces", async () => {
+    // Interface IDs
+    const Ierc20InterfaceId = "0x36372b07";
+    const Ierc165InterfaceId = "0x01ffc9a7";
+
+    // Check if interfaces are supported
+    expect(await skyToken.supportsInterface(Ierc20InterfaceId)).to.be.true;
+    expect(await skyToken.supportsInterface(Ierc165InterfaceId)).to.be.true;
+  });
+
   describe("Before the first epoch begins", () => {
     it("Unlocked supply is zero", async () => {
       expect(await skyToken.availableSupply()).to.be.equal(BigNumber.from(0));

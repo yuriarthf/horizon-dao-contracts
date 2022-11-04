@@ -22,6 +22,9 @@ import { Signer } from "@ethersproject/abstract-signer";
 // Import BigNumber utility functions
 import { randomUint256, uint256 } from "../utils/bn_utils";
 
+// Import merkle tree constructors
+import { PioneerTree, AirdropTree } from "./utils/pioneer_tree";
+
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
   let admin: Signer;
@@ -157,7 +160,7 @@ describe("PioneerERC1155 Unit Tests", () => {
   });
 
   it("Check imageURI", async () => {
-    // get imageUri
+    // iterate over all pioneerNFT types and compare the imageUri
     let imageUri: string;
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       imageUri = await pioneerToken.imageURI(id);
@@ -166,26 +169,98 @@ describe("PioneerERC1155 Unit Tests", () => {
   });
 
   it("Check collectionName", async () => {
+    // iterate over all pioneerNFT types and compare the collection names
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.collectionName(id)).to.be.equal(collectionName(id));
     }
   });
 
   it("Check collectionDescription", async () => {
+    // iterate over all pioneerNFT types and compare the collection descriptions
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.collectionDescription(id)).to.be.equal(collectionDescription(id));
     }
   });
 
   it("Check collectionMetadata", async () => {
+    // iterate over all pioneerNFT types and compare the collection metadata
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.collectionMetadata(id)).to.be.equal(collectionMetadata(id));
     }
   });
 
   it("Check uri", async () => {
+    // iterate over all pioneerNFT types and compare the collection's uri
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.uri(id)).to.be.equal(uri(id));
     }
+  });
+
+  it("Make sure saleInitialized return false before Sale is initialized", async () => {
+    // saleInitialized should return false
+    expect(await pioneerToken.saleInitialized()).to.be.false;
+  });
+
+  describe("Private claiming", () => {
+    let privateSigner1: Signer;
+    let privateSigner2: Signer;
+    let privateSigner3: Signer;
+    let privateSigner4: Signer;
+    let privateWhitelistTree: PioneerTree;
+
+    before(async () => {
+      // get private whitelist signers
+      [privateSigner1, privateSigner2, privateSigner3, privateSigner4] = await ethers.getSigners();
+
+      // build private whitelist tree
+      privateWhitelistTree = new PioneerTree([
+        await privateSigner1.getAddress(),
+        await privateSigner2.getAddress(),
+        await privateSigner3.getAddress(),
+        await privateSigner4.getAddress(),
+      ]);
+    });
+
+    it("setPrivateRoot: revert if caller is not admin", async () => {
+      // Should revert with "!admin" message
+      await expect(pioneerToken.setPrivateRoot(privateWhitelistTree.root)).to.be.revertedWith("!admin");
+    });
+
+    it("setPrivateRoot: should emit 'PrivateMerkleRootSet' event when successful", async () => {
+      // Should emit "PrivateMerkleRootSet" event
+      await expect(pioneerToken.connect(admin).setPrivateRoot(privateWhitelistTree.root))
+        .to.emit(pioneerToken, "PrivateMerkleRootSet")
+        .withArgs(await admin.getAddress(), privateWhitelistTree.root);
+    });
+
+    it("privateClaim: successful claims", async () => {
+      // Private whitelisted signers array
+      const privateSigners = [privateSigner1, privateSigner2, privateSigner3, privateSigner4];
+
+      // claim tokens
+      for (let i = 0; i < privateSigners.length; i++) {
+        await expect(pioneerToken.connect(privateSigners[i]).privateClaim(privateWhitelistTree.proofsFromIndex(i)))
+          .to.emit(pioneerToken, "PioneerClaimed")
+          .withArgs(await privateSigners[i].getAddress(), Pioneer.GOLD, false, 1);
+        expect(await pioneerToken.userPrivateClaimed(privateSigners[i].getAddress())).to.be.true;
+        expect(await pioneerToken.balanceOf(privateSigners[i].getAddress(), Pioneer.GOLD)).to.be.equal(
+          BigNumber.from(1),
+        );
+      }
+    });
+
+    it("privateClaim: trying to claim again should revert", async () => {
+      // should revert with "claimed" message
+      await expect(
+        pioneerToken.connect(privateSigner1).privateClaim(privateWhitelistTree.proofsFromIndex(0)),
+      ).to.be.revertedWith("claimed");
+    });
+
+    it("privateClaim: claiming with a non-whitelisted address should revert", async () => {
+      // should revert with "!root" message
+      await expect(pioneerToken.connect(user).privateClaim(privateWhitelistTree.proofsFromIndex(0))).to.be.revertedWith(
+        "!root",
+      );
+    });
   });
 });

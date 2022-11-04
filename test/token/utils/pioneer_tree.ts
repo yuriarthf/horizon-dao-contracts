@@ -5,7 +5,7 @@
 import { MerkleTree } from "merkletreejs";
 
 // Ethers for keccak256 hash
-import ethers from "ethers";
+import { ethers } from "ethers";
 
 // Import types
 import type { Address, Airdrop } from "../../types";
@@ -24,15 +24,16 @@ export class PioneerTree {
    */
   constructor(accounts: Address[]) {
     this.accounts = accounts;
-    const leaves = accounts.map((address) => ethers.utils.keccak256(address));
-    this.pioneerTree = new MerkleTree(leaves, ethers.utils.keccak256);
+    this.pioneerTree = new MerkleTree(this.leaves, ethers.utils.keccak256, { sortPairs: true });
   }
 
   /**
    * @dev Get pioneer merkle tree leaves (whitelisted addresses)
    */
   get leaves() {
-    return this.accounts.map((address) => ethers.utils.keccak256(address));
+    return this.accounts.map((address) =>
+      Buffer.from(ethers.utils.solidityKeccak256(["address"], [address]).substring(2), "hex"),
+    );
   }
 
   /**
@@ -46,7 +47,7 @@ export class PioneerTree {
    * @dev Get merkle proofs for a given leaf
    * @param leaf Keccak256 hash of a pioneer merkle tree account
    */
-  proofs(leaf: string): string[] {
+  proofs(leaf: Buffer): string[] {
     return this.pioneerTree.getHexProof(leaf);
   }
 
@@ -73,10 +74,7 @@ export class AirdropTree {
    */
   constructor(airdrops: Airdrop[]) {
     this.airdrops = airdrops;
-    const leaves = airdrops.map((airdrop) =>
-      ethers.utils.keccak256(ethers.utils.solidityPack(["address", "uint256"], [airdrop.account, airdrop.amount])),
-    );
-    this.airdropTree = new MerkleTree(leaves, ethers.utils.keccak256);
+    this.airdropTree = new MerkleTree(this.leaves, ethers.utils.keccak256, { sortPairs: true });
   }
 
   /**
@@ -84,7 +82,12 @@ export class AirdropTree {
    */
   get leaves() {
     return this.airdrops.map((airdrop) =>
-      ethers.utils.keccak256(ethers.utils.solidityPack(["address", "uint256"], [airdrop.account, airdrop.amount])),
+      Buffer.from(
+        ethers.utils.keccak256(
+          ethers.utils.solidityPack(["address", "uint256"], [airdrop.account, airdrop.amount]).substring(2),
+        ),
+        "hex",
+      ),
     );
   }
 
