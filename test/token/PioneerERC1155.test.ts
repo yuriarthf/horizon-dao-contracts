@@ -13,7 +13,7 @@ chai.use(solidity);
 import type { PioneerERC1155, PioneerERC1155__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 
 // Get BigNumber
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
@@ -28,6 +28,7 @@ import { PioneerTree, AirdropTree } from "./utils/pioneer_tree";
 
 // Import EVM utils
 import { setBlockTimestamp } from "../utils/evm_utils";
+import { isReadable } from "stream";
 
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
@@ -294,7 +295,7 @@ describe("PioneerERC1155 Unit Tests", () => {
       const whitelisteAddresses = [];
       for (let i = 0; i < NUMBER_OF_WHITELISTED_WALLETS; i++) {
         whitelistedWallets.push(ethers.Wallet.createRandom().connect(ethers.provider));
-        fundingSigner.sendTransaction({
+        await fundingSigner.sendTransaction({
           to: await whitelistedWallets[i].getAddress(),
           value: etherPerWallet,
           maxFeePerGas: 0,
@@ -306,10 +307,22 @@ describe("PioneerERC1155 Unit Tests", () => {
       whitelistedMerkleTree = new PioneerTree(whitelisteAddresses);
     });
 
+    it("withdraw: should revert with 'No ethers to withdraw' message when ether balance is zero", async () => {
+      // should revert with "No ethers to withdraw"
+      await expect(pioneerToken.connect(admin).withdraw(admin.getAddress())).to.be.revertedWith(
+        "No ethers to withdraw",
+      );
+    });
+
     it("whitelistPurchase: should revert with error message '!initialized' before sale initialization", async () => {
+      // amount to purchase
       // should revert with "!initialized" message
       await expect(
-        pioneerToken.connect(whitelistedWallets[0]).whitelistPurchase(2, whitelistedMerkleTree.proofsFromIndex(0)),
+        pioneerToken
+          .connect(whitelistedWallets[0])
+          .whitelistPurchase(AMOUNT_TO_PURCHASE, whitelistedMerkleTree.proofsFromIndex(0), {
+            value: AMOUNT_TO_PURCHASE.mul(WHITELIST_TOKEN_UNIT_PRICE),
+          }),
       ).to.be.revertedWith("!initialized");
     });
 
@@ -422,6 +435,35 @@ describe("PioneerERC1155 Unit Tests", () => {
             .connect(buyer)
             .publicPurchase(excedingAmount, { value: excedingAmount.mul(publicSalePricePerToken) }),
         ).to.be.revertedWith("!purchase");
+      });
+
+      it("publicPurchase: purchase all supply with surplus payment", async () => {
+        // get total price
+        const totalPrice = purchasableLimit.mul(publicSalePricePerToken);
+
+        // get transaction gas cost
+        const purchaseGasCost = await pioneerToken.estimateGas.publicPurchase(purchasableLimit, { value: totalPrice });
+        const networkGasPrice = await ethers.provider.getGasPrice();
+        const feePriceEstimation = purchaseGasCost.mul(networkGasPrice).mul(110).div(100); // 10% security factor
+
+        // get surplus
+        const surplus = randomUint256().mod((await buyer.getBalance()).sub(totalPrice).sub(feePriceEstimation));
+
+        // should emit "PioneerClaim"
+        const buyerBalanceBefore = await buyer.getBalance();
+        const purchaseTx = pioneerToken
+          .connect(buyer)
+          .publicPurchase(purchasableLimit, { value: totalPrice.add(surplus) });
+        await expect(purchaseTx).to.emit(pioneerToken, "PioneerClaim");
+
+        // check balances
+        const purchaseReceipt = await (await purchaseTx).wait();
+        const feePrice = purchaseReceipt.gasUsed.mul(networkGasPrice);
+        expect(buyerBalanceBefore.sub(await buyer.getBalance())).to.be.equal(totalPrice.add(feePrice));
+        let totalBalance = BigNumber.from(0);
+        for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++)
+          totalBalance = totalBalance.add(await pioneerToken.balanceOf(buyer.getAddress(), id));
+        expect(totalBalance).to.be.equal(purchasableLimit);
       });
     });
   });
