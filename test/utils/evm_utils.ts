@@ -6,7 +6,7 @@ import { ethers } from "hardhat";
  * @dev Get block timestamp of the current block
  */
 export async function now() {
-  const blockNumber = await ethers.providers.getBlockNumber();
+  const blockNumber = await ethers.provider.getBlockNumber();
   return (await ethers.provider.getBlock(blockNumber)).timestamp;
 }
 

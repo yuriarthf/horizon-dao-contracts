@@ -26,6 +26,9 @@ import { randomUint256, uint256 } from "../utils/bn_utils";
 // Import merkle tree constructors
 import { PioneerTree, AirdropTree } from "./utils/pioneer_tree";
 
+// Import EVM utils
+import { setBlockTimestamp } from "../utils/evm_utils";
+
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
   let admin: Signer;
@@ -214,7 +217,7 @@ describe("PioneerERC1155 Unit Tests", () => {
 
     before(async () => {
       // get private whitelist signers
-      [privateSigner1, privateSigner2, privateSigner3, privateSigner4] = await ethers.getSigners();
+      [privateSigner1, privateSigner2, privateSigner3, privateSigner4] = (await ethers.getSigners()).slice(4);
 
       // build private whitelist tree
       privateWhitelistTree = new PioneerTree([
@@ -285,7 +288,7 @@ describe("PioneerERC1155 Unit Tests", () => {
 
     before(async () => {
       // get random whitelisted wallets
-      const [, , , , , fundingSigner] = await ethers.getSigners();
+      const [fundingSigner] = (await ethers.getSigners()).slice(8);
       const etherPerWallet = (await fundingSigner.getBalance()).div(NUMBER_OF_WHITELISTED_WALLETS);
       whitelistedWallets = [];
       const whitelisteAddresses = [];
@@ -323,6 +326,16 @@ describe("PioneerERC1155 Unit Tests", () => {
       expect(await pioneerToken.publicSaleStarted()).to.be.false;
     });
 
+    it("publicPurchase: should revert with '!start' message since public sale hasn't started", async () => {
+      // get public sale price
+      const publicSalePricePerToken = await pioneerToken.publicTokenUnitPrice();
+
+      // should rever with "!start"
+      await expect(
+        pioneerToken.publicPurchase(AMOUNT_TO_PURCHASE, { value: AMOUNT_TO_PURCHASE.mul(publicSalePricePerToken) }),
+      ).to.be.revertedWith("!start");
+    });
+
     it("initializeSale: should revert with message 'Merkle root already set' if already initialized", async () => {
       // should revert with "Merkle root already set"
       await expect(
@@ -343,6 +356,9 @@ describe("PioneerERC1155 Unit Tests", () => {
           .to.emit(pioneerToken, "WhitelistPurchase")
           .withArgs(await whitelistedWallets[i].getAddress(), AMOUNT_TO_PURCHASE);
         let balanceSum = BigNumber.from(0);
+        expect(await pioneerToken.userWhitelistPurchasedAmount(whitelistedWallets[i].getAddress())).to.be.equal(
+          AMOUNT_TO_PURCHASE,
+        );
         for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++)
           balanceSum = balanceSum.add(await pioneerToken.balanceOf(whitelistedWallets[i].getAddress(), id));
         expect(balanceSum).to.be.equal(BigNumber.from(1));
@@ -356,6 +372,57 @@ describe("PioneerERC1155 Unit Tests", () => {
           value: WHITELIST_TOKEN_UNIT_PRICE.mul(AMOUNT_TO_PURCHASE),
         }),
       ).to.be.revertedWith("!root");
+    });
+
+    it("whitelistPurchase: should revert with 'Maximum amount purchased' message if user purchase more than WHITELIST_PURCHASE_PER_ADDRESS", async () => {
+      // get user wallet and merkle proof
+      const userWallet = whitelistedWallets[0];
+      const userProof = whitelistedMerkleTree.proofsFromIndex(0);
+
+      // get exceding amount
+      const excedingAmount = (await pioneerToken.WHITELIST_PURCHASE_PER_ADDRESS())
+        .sub(await pioneerToken.userWhitelistPurchasedAmount(userWallet.getAddress()))
+        .add(1);
+
+      // should revert with "Maximum amount purchased" message
+      await expect(pioneerToken.connect(userWallet).whitelistPurchase(excedingAmount, userProof)).to.be.revertedWith(
+        "Maximum amount purchased",
+      );
+    });
+
+    describe("Public sale starts", () => {
+      let buyer: Signer;
+      let purchasableLimit: BigNumber;
+      let publicSalePricePerToken: BigNumber;
+
+      before(async () => {
+        // get public sale start time
+        const publicSaleStartTime = await pioneerToken.publicSaleStartTime();
+
+        // Set next block timestamp to be the public sale start timestamp
+        await setBlockTimestamp(publicSaleStartTime.toNumber());
+
+        // get a signer to purchase NFTs
+        [buyer] = (await ethers.getSigners()).slice(9);
+
+        // get purchasable limit
+        purchasableLimit = (await pioneerToken.PURCHASABLE_SUPPLY()).sub(await pioneerToken.purchasedAmount());
+
+        // get public sale price per token
+        publicSalePricePerToken = await pioneerToken.publicTokenUnitPrice();
+      });
+
+      it("publicPurchase: reverts '!purchase' message if user try to purchase the exceding PURCHASABLE_SUPPLY limit", async () => {
+        // get exceding purchase amount
+        const excedingAmount = purchasableLimit.add(1);
+
+        // should revert with "!purchase"
+        await expect(
+          pioneerToken
+            .connect(buyer)
+            .publicPurchase(excedingAmount, { value: excedingAmount.mul(publicSalePricePerToken) }),
+        ).to.be.revertedWith("!purchase");
+      });
     });
   });
 });
