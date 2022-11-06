@@ -16,19 +16,22 @@ import type { PioneerERC1155, PioneerERC1155__factory } from "../../typechain-ty
 import { ethers } from "hardhat";
 
 // Get BigNumber
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { Wallet } from "@ethersproject/wallet";
 import { Signer } from "@ethersproject/abstract-signer";
 
 // Import BigNumber utility functions
 import { randomUint256 } from "../utils/bn_utils";
 
-// Import merkle tree constructors
+// Import pioneer tree constructor
 import { PioneerTree } from "./utils/pioneer_tree";
+
+// Import airdrop tree constructor and types
+import { AirdropTree } from "./utils/airdrop_tree";
+import type { Airdrop } from "../types";
 
 // Import EVM utils
 import { setBlockTimestamp, setAccountBalance } from "../utils/evm_utils";
-import { execPath } from "process";
 
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
@@ -165,6 +168,23 @@ describe("PioneerERC1155 Unit Tests", () => {
       // Should revert with "No discount applied" message
       await expect(deployTransaction).to.be.revertedWith("_chances sum should be MAX_CHANCE");
     });
+
+    it("Reverts if chance array items are not monotonically increasing", async () => {
+      // get deploy transaction
+      const deployTransaction = pioneerTokenFactory
+        .connect(deployer)
+        .deploy(
+          IMAGE_URI,
+          admin.getAddress(),
+          owner.getAddress(),
+          PUBLIC_TOKEN_UNIT_PRICE,
+          WHITELIST_TOKEN_UNIT_PRICE,
+          [CHANCES[1], CHANCES[0], CHANCES[2]],
+        );
+
+      // should revert with "Invalid _chance array" message
+      await expect(deployTransaction).to.be.revertedWith("Invalid _chance array");
+    });
   });
 
   it("Check imageURI", async () => {
@@ -174,6 +194,11 @@ describe("PioneerERC1155 Unit Tests", () => {
       imageUri = await pioneerToken.imageURI(id);
       expect(imageUri).to.be.equal(IMAGE_URI + id.toString());
     }
+  });
+
+  it("imageURI: should revert if the caller is not the admin", async () => {
+    // should revert with "!admin" message
+    await expect(pioneerToken.setImageBaseURI(IMAGE_URI)).to.revertedWith("!admin");
   });
 
   it("imageURI: should revert if it's zero", async () => {
@@ -514,6 +539,11 @@ describe("PioneerERC1155 Unit Tests", () => {
         ).to.be.revertedWith("!purchase");
       });
 
+      it("withdraw: should revert if caller is not the admin", async () => {
+        // should revert with "!admin" message
+        await expect(pioneerToken.withdraw(deployer.getAddress())).to.revertedWith("!admin");
+      });
+
       it("withdraw: should emit Withdrawal", async () => {
         // get pioneer ether balance
         const pioneerEtherBalance = await ethers.provider.getBalance(pioneerToken.address);
@@ -527,6 +557,94 @@ describe("PioneerERC1155 Unit Tests", () => {
         // check balance
         const deployerBalanceAfter = await deployer.getBalance();
         expect(deployerBalanceAfter.sub(deployerBalanceBefore)).to.be.equal(pioneerEtherBalance);
+      });
+    });
+
+    describe("Airdrop claims", () => {
+      let AirdropSigners: Signer[];
+      let airdropTree: AirdropTree;
+      let maximumAirdrops: BigNumber;
+
+      before(async () => {
+        // get airdrop signers
+        AirdropSigners = (await ethers.getSigners()).slice(9, 13);
+
+        // get maximum airdrops and tokens per address
+        maximumAirdrops = await pioneerToken.AIRDROP_MAX_CLAIMS();
+        const tokensPerAddress = maximumAirdrops.div(AirdropSigners.length);
+        let airdropList: Airdrop[] = [];
+        for (const signer of AirdropSigners) {
+          airdropList.push({ account: await signer.getAddress(), amount: tokensPerAddress });
+        }
+
+        // build AirdropTree
+        airdropTree = new AirdropTree(airdropList);
+      });
+
+      it("setAirdropRoot: reverts with '!admin' if caller is not the admin", async () => {
+        // should revert with "!admin" message
+        await expect(pioneerToken.setAirdropRoot(airdropTree.root)).to.be.revertedWith("!admin");
+      });
+
+      it("setAirdropRoot: should emit 'AirdropMerkleRootSet' if successful", async () => {
+        // should emit "AirdropMerkleRootSet"
+        await expect(pioneerToken.connect(admin).setAirdropRoot(airdropTree.root)).to.emit(
+          pioneerToken,
+          "AirdropMerkleRootSet",
+        );
+      });
+
+      it("claimAirdrop: reverts with '!merkleRoot' message if proof is invalid", async () => {
+        // should revert with "!merkleRoot"
+        await expect(
+          pioneerToken
+            .connect(AirdropSigners[0])
+            .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(0), airdropTree.proofsFromIndex(1)),
+        ).to.be.revertedWith("!merkleRoot");
+      });
+
+      it("claimAirdrop: should emit 'AirdropClaim' when successful", async () => {
+        // should emit "AirdropClaim"
+        await expect(
+          pioneerToken
+            .connect(AirdropSigners[0])
+            .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(0), airdropTree.proofsFromIndex(0)),
+        )
+          .to.emit(pioneerToken, "AirdropClaim")
+          .withArgs(airdropTree.getAccountAt(0), airdropTree.getAmountAt(0));
+      });
+
+      it("claimAirdrop: should revert with message '!userNonce' when a whitelisted user tries to claim again", async () => {
+        // should revert with "!userNonce" message
+        await expect(
+          pioneerToken
+            .connect(AirdropSigners[0])
+            .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(0), airdropTree.proofsFromIndex(0)),
+        ).to.be.revertedWith("!userNonce");
+      });
+
+      it("claimAirdrop: should revert with '!airdrop' message if airdrop tokens are depleted", async () => {
+        // claim all airdrop tokens
+        for (let i = 1; i < airdropTree.airdropLength; i++) {
+          console.log();
+          await pioneerToken
+            .connect(AirdropSigners[i])
+            .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(i), airdropTree.proofsFromIndex(i));
+        }
+
+        // should revert with "!airdrop" message
+        // try to claim additional airdrop with user at index 0
+        // max airdrop check comes before nonce check
+        await expect(
+          pioneerToken
+            .connect(AirdropSigners[0])
+            .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(0), airdropTree.proofsFromIndex(0)),
+        ).to.be.revertedWith("!airdrop");
+      });
+
+      it("setAirdropRoot: should revert with '!airdrop' message when airdrop is depleted", async () => {
+        // should revert with "!airdrop" message
+        await expect(pioneerToken.connect(admin).setAirdropRoot(airdropTree.root)).to.be.revertedWith("!airdrop");
       });
     });
   });

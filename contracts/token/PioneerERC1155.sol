@@ -287,7 +287,7 @@ contract PioneerERC1155 is RoyalERC1155 {
             MerkleProof.verify(_proof, airdropMerkleRoot, keccak256(abi.encodePacked(_msgSender(), _amount))),
             "!merkleRoot"
         );
-        require(airdropClaimed + _amount < AIRDROP_MAX_CLAIMS, "!airdrop");
+        require(airdropClaimed + _amount <= AIRDROP_MAX_CLAIMS, "!airdrop");
         uint256 airdropNonce_ = airdropNonce;
         require(userAirdropNonce[_msgSender()] < airdropNonce_, "!userNonce");
         _processPurchaseRequest(0, _amount);
