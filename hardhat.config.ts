@@ -34,7 +34,7 @@ import "hardhat-gas-reporter";
 import "solidity-coverage";
 
 // add all hardhat tasks
-import "./tasks/index";
+import "./tasks";
 
 /**
  * default Hardhat configuration which uses account mnemonic to derive accounts
