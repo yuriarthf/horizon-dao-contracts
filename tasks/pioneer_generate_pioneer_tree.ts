@@ -27,12 +27,14 @@ task("pioneer:generate-pioneer-tree", "Generate the PioneerTree and save proofs 
     "Path to JSON containing the list of accounts to be used to generate the pioneer tree (should follow AccountList type).",
   )
   .addOptionalParam("output", "Path to directory to output the proofs and root.")
-  .addOptionalParam("preffix", "Preffix for output files.")
+  .addOptionalParam("prefix", "Preffix for output and default input files.")
   .setAction(async (taskArgs) => {
     // get account list
     const accountList: AccountList = taskArgs.accounts
       ? require(taskArgs.accounts)
-      : require("../data/input_data/pioneer_nft/pioneer_tree_private_accounts.json");
+      : require(`../data/input_data/pioneer_nft/${
+          taskArgs.prefix ? taskArgs.prefix + "_" : ""
+        }pioneer_tree_accounts.json`);
 
     // get output directory
     const outputDir = taskArgs.output ?? "data/output_data/pioneer_nft";
@@ -46,9 +48,13 @@ task("pioneer:generate-pioneer-tree", "Generate the PioneerTree and save proofs 
       pioneerProofs[accountList[i]] = pioneerTree.proofsFromIndex(i);
     }
 
-    fs.writeFileSync(path.resolve(outputDir, taskArgs.preffix ?? "", "pioneer_root.txt"), pioneerTree.root);
+    // save to files
     fs.writeFileSync(
-      path.resolve(outputDir, taskArgs.preffix ?? "", "pioneer_proofs.json"),
+      path.resolve(outputDir, `${taskArgs.prefix ? taskArgs.prefix + "_" : ""}pioneer_root.txt`),
+      pioneerTree.root,
+    );
+    fs.writeFileSync(
+      path.resolve(outputDir, `${taskArgs.prefix ? taskArgs.prefix + "_" : ""}pioneer_proofs.json`),
       JSON.stringify(pioneerProofs),
     );
   });
