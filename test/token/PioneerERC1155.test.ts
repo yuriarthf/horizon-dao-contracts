@@ -13,22 +13,21 @@ chai.use(solidity);
 import type { PioneerERC1155, PioneerERC1155__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
-import { ethers, network } from "hardhat";
+import { ethers } from "hardhat";
 
 // Get BigNumber
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber } from "@ethersproject/bignumber";
 import { Wallet } from "@ethersproject/wallet";
 import { Signer } from "@ethersproject/abstract-signer";
 
 // Import BigNumber utility functions
-import { randomUint256, uint256 } from "../utils/bn_utils";
+import { randomUint256 } from "../utils/bn_utils";
 
 // Import merkle tree constructors
-import { PioneerTree, AirdropTree } from "./utils/pioneer_tree";
+import { PioneerTree } from "./utils/pioneer_tree";
 
 // Import EVM utils
-import { setBlockTimestamp } from "../utils/evm_utils";
-import { isReadable } from "stream";
+import { setBlockTimestamp, setAccountBalance } from "../utils/evm_utils";
 
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
@@ -289,18 +288,15 @@ describe("PioneerERC1155 Unit Tests", () => {
 
     before(async () => {
       // get random whitelisted wallets
-      const [fundingSigner] = (await ethers.getSigners()).slice(8);
-      const etherPerWallet = (await fundingSigner.getBalance()).div(NUMBER_OF_WHITELISTED_WALLETS);
       whitelistedWallets = [];
       const whitelisteAddresses = [];
       for (let i = 0; i < NUMBER_OF_WHITELISTED_WALLETS; i++) {
         whitelistedWallets.push(ethers.Wallet.createRandom().connect(ethers.provider));
-        await fundingSigner.sendTransaction({
-          to: await whitelistedWallets[i].getAddress(),
-          value: etherPerWallet,
-          maxFeePerGas: 0,
-        });
         whitelisteAddresses.push(await whitelistedWallets[i].getAddress());
+        await setAccountBalance(
+          await whitelistedWallets[i].getAddress(),
+          ethers.utils.parseEther("100000000").toHexString(),
+        );
       }
 
       // create merkle tree
@@ -416,7 +412,7 @@ describe("PioneerERC1155 Unit Tests", () => {
         await setBlockTimestamp(publicSaleStartTime.toNumber());
 
         // get a signer to purchase NFTs
-        [buyer] = (await ethers.getSigners()).slice(9);
+        [buyer] = (await ethers.getSigners()).slice(8);
 
         // get purchasable limit
         purchasableLimit = (await pioneerToken.PURCHASABLE_SUPPLY()).sub(await pioneerToken.purchasedAmount());
@@ -441,25 +437,18 @@ describe("PioneerERC1155 Unit Tests", () => {
         // get total price
         const totalPrice = purchasableLimit.mul(publicSalePricePerToken);
 
-        // get transaction gas cost
-        const purchaseGasCost = await pioneerToken.estimateGas.publicPurchase(purchasableLimit, { value: totalPrice });
-        const networkGasPrice = await ethers.provider.getGasPrice();
-        const feePriceEstimation = purchaseGasCost.mul(networkGasPrice).mul(110).div(100); // 10% security factor
-
         // get surplus
-        const surplus = randomUint256().mod((await buyer.getBalance()).sub(totalPrice).sub(feePriceEstimation));
+        const surplus = randomUint256().mod((await buyer.getBalance()).sub(totalPrice));
 
         // should emit "PioneerClaim"
-        const buyerBalanceBefore = await buyer.getBalance();
-        const purchaseTx = pioneerToken
-          .connect(buyer)
-          .publicPurchase(purchasableLimit, { value: totalPrice.add(surplus) });
-        await expect(purchaseTx).to.emit(pioneerToken, "PioneerClaim");
+        const pioneerBalanceBefore = await ethers.provider.getBalance(pioneerToken.address);
+        await expect(
+          pioneerToken.connect(buyer).publicPurchase(purchasableLimit, { value: totalPrice.add(surplus) }),
+        ).to.emit(pioneerToken, "PioneerClaim");
 
-        // check balances
-        const purchaseReceipt = await (await purchaseTx).wait();
-        const feePrice = purchaseReceipt.gasUsed.mul(networkGasPrice);
-        expect(buyerBalanceBefore.sub(await buyer.getBalance())).to.be.equal(totalPrice.add(feePrice));
+        // check pioneerNFT balance
+        const pioneerBalanceAfter = await ethers.provider.getBalance(pioneerToken.address);
+        expect(pioneerBalanceAfter.sub(pioneerBalanceBefore)).to.be.equal(totalPrice);
         let totalBalance = BigNumber.from(0);
         for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++)
           totalBalance = totalBalance.add(await pioneerToken.balanceOf(buyer.getAddress(), id));

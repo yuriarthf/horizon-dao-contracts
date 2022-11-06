@@ -1,7 +1,5 @@
 module.exports = {
-  istanbulReporter: ["html", "lcov"],
-  providerOptions: {
-    mnemonic: process.env.MNEMONIC,
-  },
-  skipFiles: ["test"],
+  skipFiles: ["mock", "test"],
+  configureYulOptimizer: true,
+  providerOptions: { options: { gasPrice: 0 } },
 };

@@ -2,6 +2,8 @@
 
 import { ethers } from "hardhat";
 
+import { Address } from "../types";
+
 /**
  * @dev Get block timestamp of the current block
  */
@@ -17,4 +19,14 @@ export async function now() {
  */
 export async function setBlockTimestamp(timestamp: number) {
   await ethers.provider.send("evm_mine", [timestamp]);
+}
+
+/**
+ * @dev Set an account balance
+ *
+ * @param account Address of the account
+ * @param amount Amount in wei to set
+ */
+export async function setAccountBalance(account: Address, amount: number | string) {
+  await ethers.provider.send("hardhat_setBalance", [account, amount]);
 }
