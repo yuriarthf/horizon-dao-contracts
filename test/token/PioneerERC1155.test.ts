@@ -28,6 +28,7 @@ import { PioneerTree } from "./utils/pioneer_tree";
 
 // Import EVM utils
 import { setBlockTimestamp, setAccountBalance } from "../utils/evm_utils";
+import { execPath } from "process";
 
 describe("PioneerERC1155 Unit Tests", () => {
   let deployer: Signer;
@@ -175,6 +176,17 @@ describe("PioneerERC1155 Unit Tests", () => {
     }
   });
 
+  it("imageURI: should revert if it's zero", async () => {
+    // set imageURI to empty string
+    await expect(pioneerToken.connect(admin).setImageBaseURI("")).to.emit(pioneerToken, "NewImageUri");
+
+    // should revert with "!baseURI"
+    await expect(pioneerToken.imageURI(Pioneer.GOLD)).to.be.revertedWith("!baseURI");
+
+    // set imageURI back to IMAGE_URI
+    await pioneerToken.connect(admin).setImageBaseURI(IMAGE_URI);
+  });
+
   it("Check collectionName", async () => {
     // iterate over all pioneerNFT types and compare the collection names
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
@@ -182,11 +194,25 @@ describe("PioneerERC1155 Unit Tests", () => {
     }
   });
 
+  it("collectionName: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.collectionName(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
+      "Invalid collection ID",
+    );
+  });
+
   it("Check collectionDescription", async () => {
     // iterate over all pioneerNFT types and compare the collection descriptions
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.collectionDescription(id)).to.be.equal(collectionDescription(id));
     }
+  });
+
+  it("collectionDescription: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.collectionDescription(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
+      "Invalid collection ID",
+    );
   });
 
   it("Check collectionMetadata", async () => {
@@ -201,6 +227,11 @@ describe("PioneerERC1155 Unit Tests", () => {
     for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
       expect(await pioneerToken.uri(id)).to.be.equal(uri(id));
     }
+  });
+
+  it("uri: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.uri(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith("Invalid collection ID");
   });
 
   it("Make sure saleInitialized return false before Sale is initialized", async () => {
@@ -238,6 +269,13 @@ describe("PioneerERC1155 Unit Tests", () => {
       await expect(pioneerToken.connect(admin).setPrivateRoot(privateWhitelistTree.root))
         .to.emit(pioneerToken, "PrivateMerkleRootSet")
         .withArgs(await admin.getAddress(), privateWhitelistTree.root);
+    });
+
+    it("setPrivateRoot: revert if root was already set", async () => {
+      // Should revert with "Merkle root already set" message
+      await expect(pioneerToken.connect(admin).setPrivateRoot(privateWhitelistTree.root)).to.be.revertedWith(
+        "Merkle root already set",
+      );
     });
 
     it("privateClaim: successful claims", async () => {
@@ -421,7 +459,7 @@ describe("PioneerERC1155 Unit Tests", () => {
         publicSalePricePerToken = await pioneerToken.publicTokenUnitPrice();
       });
 
-      it("publicPurchase: reverts '!purchase' message if user try to purchase the exceding PURCHASABLE_SUPPLY limit", async () => {
+      it("publicPurchase: reverts with '!purchase' message if user try to purchase the exceding PURCHASABLE_SUPPLY limit", async () => {
         // get exceding purchase amount
         const excedingAmount = purchasableLimit.add(1);
 
@@ -431,6 +469,16 @@ describe("PioneerERC1155 Unit Tests", () => {
             .connect(buyer)
             .publicPurchase(excedingAmount, { value: excedingAmount.mul(publicSalePricePerToken) }),
         ).to.be.revertedWith("!purchase");
+      });
+
+      it("publicPurchase: reverts with 'Not enough ethers' message if user doesn't send enought ethers to buy tokens", async () => {
+        // get insufficient ethers value
+        const insufficientValue = BigNumber.from(1).mul(publicSalePricePerToken).sub(1);
+
+        // should revert with "Not enough ethers"
+        await expect(
+          pioneerToken.connect(buyer).publicPurchase(BigNumber.from(1), { value: insufficientValue }),
+        ).to.be.revertedWith("Not enough ethers");
       });
 
       it("publicPurchase: purchase all supply with surplus payment", async () => {
@@ -453,6 +501,32 @@ describe("PioneerERC1155 Unit Tests", () => {
         for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++)
           totalBalance = totalBalance.add(await pioneerToken.balanceOf(buyer.getAddress(), id));
         expect(totalBalance).to.be.equal(purchasableLimit);
+      });
+
+      it("whitelistPurchase: reverts with '!purchase' if amount excessed PURCHASABLE_AMOUNT", async () => {
+        // should revert with "!purchase"
+        await expect(
+          pioneerToken
+            .connect(whitelistedWallets[0])
+            .whitelistPurchase(BigNumber.from(1), whitelistedMerkleTree.proofsFromIndex(0), {
+              value: BigNumber.from(1).mul(WHITELIST_TOKEN_UNIT_PRICE),
+            }),
+        ).to.be.revertedWith("!purchase");
+      });
+
+      it("withdraw: should emit Withdrawal", async () => {
+        // get pioneer ether balance
+        const pioneerEtherBalance = await ethers.provider.getBalance(pioneerToken.address);
+
+        // send to deployer
+        const deployerBalanceBefore = await deployer.getBalance();
+        await expect(pioneerToken.connect(admin).withdraw(deployer.getAddress()))
+          .to.emit(pioneerToken, "Withdrawal")
+          .withArgs(await admin.getAddress(), await deployer.getAddress(), pioneerEtherBalance);
+
+        // check balance
+        const deployerBalanceAfter = await deployer.getBalance();
+        expect(deployerBalanceAfter.sub(deployerBalanceBefore)).to.be.equal(pioneerEtherBalance);
       });
     });
   });

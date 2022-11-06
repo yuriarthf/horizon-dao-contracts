@@ -173,7 +173,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Collection name
     function collectionName(uint256 _id) public pure returns (string memory) {
-        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
         if (_id == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
         if (_id == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
         return "Gold Horizon Pioneer Badge";
@@ -183,7 +183,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _id Collection ID
     /// @return Collection description
     function collectionDescription(uint256 _id) public pure returns (string memory) {
-        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
         if (_id == uint256(Pioneer.BRONZE)) return "";
         if (_id == uint256(Pioneer.SILVER)) return "";
         return "";
