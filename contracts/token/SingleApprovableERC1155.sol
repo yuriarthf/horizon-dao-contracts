@@ -19,11 +19,7 @@ abstract contract SingleApprovableERC1155 is ERC1155Supply {
     /// @param _id Collection ID
     /// @param _spender Spender address
     /// @param _amount Amount allowed
-    function approve(
-        uint256 _id,
-        address _spender,
-        uint256 _amount
-    ) public returns (bool) {
+    function approve(uint256 _id, address _spender, uint256 _amount) public returns (bool) {
         address owner_ = _msgSender();
         _approve(_id, owner_, _spender, _amount);
         return true;
@@ -65,12 +61,7 @@ abstract contract SingleApprovableERC1155 is ERC1155Supply {
     /// @param _id Collection ID
     /// @param _spender Spender address
     /// @param _amount Amount allowed
-    function _approve(
-        uint256 _id,
-        address _owner,
-        address _spender,
-        uint256 _amount
-    ) internal virtual {
+    function _approve(uint256 _id, address _owner, address _spender, uint256 _amount) internal virtual {
         require(_owner != address(0), "Approve from the zero address");
         require(_spender != address(0), "Approve to the zero address");
 

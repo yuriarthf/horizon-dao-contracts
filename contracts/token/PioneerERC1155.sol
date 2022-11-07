@@ -144,58 +144,61 @@ contract PioneerERC1155 is RoyalERC1155 {
     }
 
     /// @notice Returns the Base64 encoded metadata for a given collection
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @return Base64 encoded metadata
-    function uri(uint256 _id) public view override returns (string memory) {
-        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(collectionMetadata(_id)))));
+    function uri(uint256 _tokenId) public view override returns (string memory) {
+        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
+        return
+            string(
+                abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(collectionMetadata(_tokenId))))
+            );
     }
 
     /// @notice Returns the stringified metadata JSON for a given collection
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @return Stringified metadata JSON
-    function collectionMetadata(uint256 _id) public view returns (string memory) {
+    function collectionMetadata(uint256 _tokenId) public view returns (string memory) {
         return
             string(
                 abi.encodePacked(
                     '{"name":"',
-                    collectionName(_id),
+                    collectionName(_tokenId),
                     '","description":"',
-                    collectionDescription(_id),
+                    collectionDescription(_tokenId),
                     '","image":"',
-                    imageURI(_id),
+                    imageURI(_tokenId),
                     '"}'
                 )
             );
     }
 
     /// @notice Get collection name
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @return Collection name
-    function collectionName(uint256 _id) public pure returns (string memory) {
-        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        if (_id == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
-        if (_id == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
+    function collectionName(uint256 _tokenId) public pure returns (string memory) {
+        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
+        if (_tokenId == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
+        if (_tokenId == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
         return "Gold Horizon Pioneer Badge";
     }
 
     /// @notice Get collection description
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @return Collection description
-    function collectionDescription(uint256 _id) public pure returns (string memory) {
-        require(_id <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        if (_id == uint256(Pioneer.BRONZE)) return "";
-        if (_id == uint256(Pioneer.SILVER)) return "";
+    function collectionDescription(uint256 _tokenId) public pure returns (string memory) {
+        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
+        if (_tokenId == uint256(Pioneer.BRONZE)) return "";
+        if (_tokenId == uint256(Pioneer.SILVER)) return "";
         return "";
     }
 
     /// @notice Get the image URI for a given collection
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @return Image URI
-    function imageURI(uint256 _id) public view returns (string memory) {
+    function imageURI(uint256 _tokenId) public view returns (string memory) {
         string memory uri_ = super.uri(uint256(0));
         require(keccak256(bytes(uri_)) != keccak256(""), "!baseURI");
-        return string(abi.encodePacked(super.uri(uint256(0)), _id.toString()));
+        return string(abi.encodePacked(super.uri(uint256(0)), _tokenId.toString()));
     }
 
     /// @notice Whether the sale has been initialized
