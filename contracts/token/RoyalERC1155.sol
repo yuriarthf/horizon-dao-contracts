@@ -73,6 +73,11 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
         emit NewAdmin(_admin);
     }
 
+    /// @notice The denominator of which will be used to calculate the fee (feeNumerator/feeDenominator)
+    function feeDenominator() external pure returns (uint256) {
+        return _feeDenominator();
+    }
+
     /// @dev Set new admin role
     /// @param _admin New admin address
     function setAdmin(address _admin) external onlyAdmin {
