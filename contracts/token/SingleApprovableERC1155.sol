@@ -18,12 +18,12 @@ abstract contract SingleApprovableERC1155 is ERC1155URIStorage, ERC1155Supply {
     event Approval(uint256 indexed _id, address indexed _owner, address indexed _spender, uint256 _amount);
 
     /// @notice Approve a spender to transfer tokens
-    /// @param _id Collection ID
+    /// @param _tokenId Collection ID
     /// @param _spender Spender address
     /// @param _amount Amount allowed
-    function approve(uint256 _id, address _spender, uint256 _amount) public returns (bool) {
+    function approve(uint256 _tokenId, address _spender, uint256 _amount) public returns (bool) {
         address owner_ = _msgSender();
-        _approve(_id, owner_, _spender, _amount);
+        _approve(_tokenId, owner_, _spender, _amount);
         return true;
     }
 

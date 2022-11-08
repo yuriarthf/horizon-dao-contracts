@@ -39,7 +39,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @dev How many Gold Pioneers a user can get from private claim
     uint256 public constant PRIVATE_CLAIM_GOLD = 1;
 
-    /// @dev Represents 100% chance, there will be 3 Pioneer collection
+    /// @dev Represents 100% chance, there will be 3 Pioneer tokens
     ///     with decreasing chances to be minted during purchases
     ///     the total chances should sum to MAX_CHANCE
     uint256 public constant MAX_CHANCE = 1_000;
@@ -92,7 +92,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @dev Emitted when the Airdrop Merkle Root is set
     event AirdropMerkleRootSet(address indexed _admin, uint256 indexed _airdropNonce, bytes32 _root);
 
-    /// @dev Emitted when a new base image URI is set for the collections
+    /// @dev Emitted when a new base image URI is set for the tokens
     event NewImageUri(address indexed _admin, string _uri);
 
     /// @dev Emitted when ethers are withdrawn from the contract
@@ -119,7 +119,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     /// @param _owner Should be an EOA, will have rights over OpenSea collection configuration
     /// @param _publicTokenUnitPrice Price per token for Public Sale
     /// @param _whitelistTokenUnitPrice Price per token for Whitelisted Sale
-    /// @param _chances Array with the chances of getting a Pioneer for each collection
+    /// @param _chances Array with the chances of getting a Pioneer for each token
     constructor(
         string memory _imageUri,
         address _admin,
@@ -143,62 +143,59 @@ contract PioneerERC1155 is RoyalERC1155 {
         emit NewImageUri(_msgSender(), _imageUri);
     }
 
-    /// @notice Returns the Base64 encoded metadata for a given collection
-    /// @param _tokenId Collection ID
+    /// @notice Returns the Base64 encoded metadata for a given token
+    /// @param _id Token ID
     /// @return Base64 encoded metadata
-    function uri(uint256 _tokenId) public view override returns (string memory) {
-        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        return
-            string(
-                abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(collectionMetadata(_tokenId))))
-            );
+    function uri(uint256 _id) public view override returns (string memory) {
+        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(metadata(_id)))));
     }
 
-    /// @notice Returns the stringified metadata JSON for a given collection
-    /// @param _tokenId Collection ID
+    /// @notice Returns the stringified metadata JSON for a given token
+    /// @param _id Token ID
     /// @return Stringified metadata JSON
-    function collectionMetadata(uint256 _tokenId) public view returns (string memory) {
+    function metadata(uint256 _id) public view returns (string memory) {
         return
             string(
                 abi.encodePacked(
                     '{"name":"',
-                    collectionName(_tokenId),
+                    name(_id),
                     '","description":"',
-                    collectionDescription(_tokenId),
+                    description(_id),
                     '","image":"',
-                    imageURI(_tokenId),
+                    imageURI(_id),
                     '"}'
                 )
             );
     }
 
-    /// @notice Get collection name
-    /// @param _tokenId Collection ID
-    /// @return Collection name
-    function collectionName(uint256 _tokenId) public pure returns (string memory) {
-        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        if (_tokenId == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
-        if (_tokenId == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
+    /// @notice Get token name
+    /// @param _id Token ID
+    /// @return Token name
+    function name(uint256 _id) public pure returns (string memory) {
+        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        if (_id == uint256(Pioneer.BRONZE)) return "Bronze Horizon Pioneer Badge";
+        if (_id == uint256(Pioneer.SILVER)) return "Silver Horizon Pioneer Badge";
         return "Gold Horizon Pioneer Badge";
     }
 
-    /// @notice Get collection description
-    /// @param _tokenId Collection ID
-    /// @return Collection description
-    function collectionDescription(uint256 _tokenId) public pure returns (string memory) {
-        require(_tokenId <= uint256(Pioneer.GOLD), "Invalid collection ID");
-        if (_tokenId == uint256(Pioneer.BRONZE)) return "";
-        if (_tokenId == uint256(Pioneer.SILVER)) return "";
+    /// @notice Get token description
+    /// @param _id Token ID
+    /// @return Token description
+    function description(uint256 _id) public pure returns (string memory) {
+        require(_id <= uint256(Pioneer.GOLD), "Invalid token ID");
+        if (_id == uint256(Pioneer.BRONZE)) return "";
+        if (_id == uint256(Pioneer.SILVER)) return "";
         return "";
     }
 
-    /// @notice Get the image URI for a given collection
-    /// @param _tokenId Collection ID
+    /// @notice Get the image URI for a given token
+    /// @param _id Token ID
     /// @return Image URI
-    function imageURI(uint256 _tokenId) public view returns (string memory) {
+    function imageURI(uint256 _id) public view returns (string memory) {
         string memory uri_ = super.uri(uint256(0));
         require(keccak256(bytes(uri_)) != keccak256(""), "!baseURI");
-        return string(abi.encodePacked(super.uri(uint256(0)), _tokenId.toString()));
+        return string(abi.encodePacked(super.uri(uint256(0)), _id.toString()));
     }
 
     /// @notice Whether the sale has been initialized
@@ -238,7 +235,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         emit AirdropMerkleRootSet(_msgSender(), ++airdropNonce, _root);
     }
 
-    /// @dev Set new base image URI for collections
+    /// @dev Set new base image URI for the tokens
     /// @param _uri Base image URI
     function setImageBaseURI(string memory _uri) external onlyAdmin {
         _setURI(_uri);
@@ -272,7 +269,7 @@ contract PioneerERC1155 is RoyalERC1155 {
         emit WhitelistPurchase(_msgSender(), _amount);
     }
 
-    /// @notice Purchase Pioneer NFTs randomly from the 3 collections (Bronze, Silver and Gold)
+    /// @notice Purchase Pioneer NFTs randomly from the 3 type of tokens (Bronze, Silver and Gold)
     /// @param _amount Amount to purchase
     function publicPurchase(uint256 _amount) external payable {
         require(publicSaleStarted(), "!start");

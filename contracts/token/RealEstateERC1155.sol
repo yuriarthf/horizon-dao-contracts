@@ -36,10 +36,10 @@ contract RealEstateERC1155 is RoyalERC1155 {
     event SetBurner(address indexed _by, address indexed _burner);
 
     /// @dev Emitted when new reNFTs are minted
-    event RealEstateNFTMinted(uint256 indexed _tokenId, address indexed _minter, address indexed _to, uint256 _amount);
+    event RealEstateNFTMinted(uint256 indexed _id, address indexed _minter, address indexed _to, uint256 _amount);
 
     /// @dev Emitted when reNFTs are burned
-    event RealEstateNFTBurned(uint256 indexed _tokenId, address indexed _burner, uint256 _amount);
+    event RealEstateNFTBurned(uint256 indexed _id, address indexed _burner, uint256 _amount);
 
     /// @dev Initialize RealEstateNFT
     /// @param _baseUri Base URI for the offchain NFT metadata
@@ -80,26 +80,26 @@ contract RealEstateERC1155 is RoyalERC1155 {
 
     /// @dev Mint new reNFT tokens
     /// @dev Requires Minter role
-    /// @param _tokenId Token ID
+    /// @param _id Token ID
     /// @param _to Address to transfer minted tokens
     /// @param _amount Amount to mint
-    function mint(uint256 _tokenId, address _to, uint256 _amount) external {
+    function mint(uint256 _id, address _to, uint256 _amount) external {
         require(_msgSender() == minter, "!minter");
-        if (totalSupply(_tokenId) == 0) {
-            require(_tokenId == 0 || totalSupply(_tokenId - 1) > 0, "IDs should be sequential");
+        if (totalSupply(_id) == 0) {
+            require(_id == 0 || totalSupply(_id - 1) > 0, "IDs should be sequential");
             _currentId.increment();
         }
-        _mint(_to, _tokenId, _amount, bytes(""));
-        emit RealEstateNFTMinted(_tokenId, _msgSender(), _to, _amount);
+        _mint(_to, _id, _amount, bytes(""));
+        emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
     }
 
     /// @dev Burns own tokens
     /// @dev Requires Burner role
-    /// @param _tokenId Token ID
+    /// @param _id Token ID
     /// @param _amount Amount of tokens to burn
-    function burn(uint256 _tokenId, uint256 _amount) external {
+    function burn(uint256 _id, uint256 _amount) external {
         require(_msgSender() == burner, "!burner");
-        _burn(_msgSender(), _tokenId, _amount);
-        emit RealEstateNFTBurned(_tokenId, _msgSender(), _amount);
+        _burn(_msgSender(), _id, _amount);
+        emit RealEstateNFTBurned(_id, _msgSender(), _amount);
     }
 }
