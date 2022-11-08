@@ -10,21 +10,14 @@ import { expect } from "chai";
 chai.use(solidity);
 
 // Import contract types
-import type { RealEstateERC1155, RealEstateERC1155__factory, SingleApprovableERC1155 } from "../../typechain-types";
+import type { RealEstateERC1155, RealEstateERC1155__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
 import { ethers } from "hardhat";
 
 // Get BigNumber
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
-import { Wallet } from "@ethersproject/wallet";
+import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
-
-// Import BigNumber utility functions
-import { randomUint256 } from "../utils/bn_utils";
-
-// Import EVM utils
-import { setBlockTimestamp, setAccountBalance } from "../utils/evm_utils";
 
 describe("RealEstateERC1155 Unit Tests", () => {
   let deployer: Signer;
@@ -59,6 +52,11 @@ describe("RealEstateERC1155 Unit Tests", () => {
     expect(await realEstateToken.symbol()).to.be.equal(SYMBOL);
   });
 
+  it("setMinter: should revert with '!admin' if caller is not the admin", async () => {
+    // should revert with "!admin" message
+    await expect(realEstateToken.setMinter(minter.getAddress())).to.be.revertedWith("!admin");
+  });
+
   it("setMinter: should emit 'SetMinter' on success", async () => {
     // should emit "SetMinter"
     await expect(realEstateToken.connect(admin).setMinter(minter.getAddress()))
@@ -69,6 +67,11 @@ describe("RealEstateERC1155 Unit Tests", () => {
   it("setMinter: should revert with 'Same minter' message when setting the same minter", async () => {
     // should revert with "Same minter" message
     await expect(realEstateToken.connect(admin).setMinter(minter.getAddress())).to.be.revertedWith("Same minter");
+  });
+
+  it("setBurner: should revert with '!admin' if caller is not the admin", async () => {
+    // should revert with "!admin" message
+    await expect(realEstateToken.setBurner(minter.getAddress())).to.be.revertedWith("!admin");
   });
 
   it("setBurner: should emit 'SetBurner' on success", async () => {
@@ -84,10 +87,116 @@ describe("RealEstateERC1155 Unit Tests", () => {
   });
 
   describe("Mint event", () => {
+    let realEstateReceiver: Signer;
+
     const FIRST_MINT = BigNumber.from("1000");
     const ADDITIONAL_FIRST_MINT = BigNumber.from("500");
     const SECOND_MINT = BigNumber.from("2000");
 
     let currentId = BigNumber.from("0");
+
+    before(async () => {
+      // get realEstateReceiver
+      [realEstateReceiver] = (await ethers.getSigners()).slice(5);
+    });
+
+    it("mint: revert if caller is not the minter", async () => {
+      // should revert with "!minter" message
+      await expect(realEstateToken.mint(currentId, realEstateReceiver.getAddress(), FIRST_MINT)).to.be.revertedWith(
+        "!minter",
+      );
+    });
+
+    it("mint: first mint should increase currentId and emit 'RealEstateNFTMinted' event", async () => {
+      // should emit "RealEstateNFTMinted"
+      await expect(realEstateToken.connect(minter).mint(currentId, realEstateReceiver.getAddress(), FIRST_MINT))
+        .to.emit(realEstateToken, "RealEstateNFTMinted")
+        .withArgs(currentId, await minter.getAddress(), await realEstateReceiver.getAddress(), FIRST_MINT);
+
+      // increment currentId
+      currentId = currentId.add(1);
+
+      // check if it matches with contract's currentId
+      expect(await realEstateToken.nextRealEstateId()).to.be.equal(currentId);
+
+      // check realEstateReceiver balance
+      expect(await realEstateToken.balanceOf(realEstateReceiver.getAddress(), currentId.sub(1))).to.be.equal(
+        FIRST_MINT,
+      );
+    });
+
+    it("mint: mint additional tokens on existing reNFT collection should not increment currentId", async () => {
+      // mint additional tokens
+      await realEstateToken
+        .connect(minter)
+        .mint(currentId.sub(1), realEstateReceiver.getAddress(), ADDITIONAL_FIRST_MINT);
+
+      // check realEstateReceiver balance
+      expect(await realEstateToken.balanceOf(realEstateReceiver.getAddress(), currentId.sub(1))).to.be.equal(
+        FIRST_MINT.add(ADDITIONAL_FIRST_MINT),
+      );
+
+      // check contract's current ID
+      expect(await realEstateToken.nextRealEstateId()).to.be.equal(currentId);
+    });
+
+    it("mint: reverts with 'IDs should be sequential' message if new collection ID is not sequential", async () => {
+      // should revert with "IDs should be sequential"
+      await expect(
+        realEstateToken.connect(minter).mint(currentId.add(1), realEstateReceiver.getAddress(), SECOND_MINT),
+      ).to.be.revertedWith("IDs should be sequential");
+    });
+
+    it("mint: new reNFT collection should increment currentId", async () => {
+      // mint new reNFT collection
+      await expect(realEstateToken.connect(minter).mint(currentId, realEstateReceiver.getAddress(), SECOND_MINT))
+        .to.emit(realEstateToken, "RealEstateNFTMinted")
+        .withArgs(currentId, await minter.getAddress(), await realEstateReceiver.getAddress(), SECOND_MINT);
+
+      // increment currentId and check contract value
+      currentId = currentId.add(1);
+      expect(await realEstateToken.nextRealEstateId()).to.be.equal(currentId);
+
+      // check realEstateReceiver balance
+      expect(await realEstateToken.balanceOf(realEstateReceiver.getAddress(), currentId.sub(1))).to.be.equal(
+        SECOND_MINT,
+      );
+    });
+
+    describe("burn event", () => {
+      it("burn: reverts with '!burner' message if caller is not the burner", async () => {
+        // should revert with "!burner"
+        await expect(
+          realEstateToken.connect(realEstateReceiver).burn(currentId.sub(1), SECOND_MINT),
+        ).to.be.revertedWith("!burner");
+      });
+
+      it("burn: should emit 'RealEstateNFTBurned' when successful", async () => {
+        // transfer tokens to burner
+        await realEstateToken
+          .connect(realEstateReceiver)
+          .safeTransferFrom(
+            realEstateReceiver.getAddress(),
+            burner.getAddress(),
+            currentId.sub(1),
+            SECOND_MINT,
+            ethers.utils.toUtf8Bytes(""),
+          );
+
+        // check balances
+        expect(await realEstateToken.balanceOf(realEstateReceiver.getAddress(), currentId.sub(1))).to.be.equal(
+          BigNumber.from(0),
+        );
+        expect(await realEstateToken.balanceOf(burner.getAddress(), currentId.sub(1))).to.be.equal(SECOND_MINT);
+
+        // burn all tokens
+        await expect(realEstateToken.connect(burner).burn(currentId.sub(1), SECOND_MINT))
+          .to.emit(realEstateToken, "RealEstateNFTBurned")
+          .withArgs(currentId.sub(1), await burner.getAddress(), SECOND_MINT);
+
+        // check burner balance
+        expect(await realEstateToken.balanceOf(burner.getAddress(), currentId.sub(1))).to.be.equal(BigNumber.from(0));
+      });
+    });
   });
 });

@@ -26,21 +26,8 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev Address of the burner: Can execute burning functions
     address public burner;
 
-    /// @dev mapping (tokenId => tokenName)
-    mapping(uint256 => string) public tokenName;
-
-    /// @dev mapping (tokenId => tokenSymbol)
-    mapping(uint256 => string) public tokenSymbol;
-
-    /// @dev mapping (tokenId => isInitialized)
-    /// @dev when a tokenId is initialized, it means it cannot change afterwards
-    BitMaps.BitMap private _metadataInitialized;
-
     /// @dev Current value shows the next available token ID
     Counters.Counter private _currentId;
-
-    /// @dev Emitted when a new reNFT token metadata is configured
-    event SetTokenMetadata(uint256 indexed _id, string _name, string _symbol);
 
     /// @dev Emitted when a new minter is set
     event SetMinter(address indexed _by, address indexed _minter);
@@ -49,13 +36,10 @@ contract RealEstateERC1155 is RoyalERC1155 {
     event SetBurner(address indexed _by, address indexed _burner);
 
     /// @dev Emitted when new reNFTs are minted
-    event RealEstateNFTMinted(uint256 indexed _id, address indexed _minter, address indexed _to, uint256 _amount);
+    event RealEstateNFTMinted(uint256 indexed _tokenId, address indexed _minter, address indexed _to, uint256 _amount);
 
-    /// @dev Checks if msg.sender is the minter
-    modifier onlyMinter() {
-        require(_msgSender() == minter, "!minter");
-        _;
-    }
+    /// @dev Emitted when reNFTs are burned
+    event RealEstateNFTBurned(uint256 indexed _tokenId, address indexed _burner, uint256 _amount);
 
     /// @dev Initialize RealEstateNFT
     /// @param _baseUri Base URI for the offchain NFT metadata
@@ -71,6 +55,11 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @notice Returns the symbol of the RealEstateERC1155 contract
     function symbol() external pure returns (string memory) {
         return "reNFT";
+    }
+
+    /// @notice Returns the ID of the next available reNFT
+    function nextRealEstateId() external view returns (uint256) {
+        return _currentId.current();
     }
 
     /// @dev Set new minter role
@@ -89,31 +78,15 @@ contract RealEstateERC1155 is RoyalERC1155 {
         emit SetBurner(_msgSender(), _burner);
     }
 
-    /// @dev Sets the metadata for a new reNFT token
-    /// @dev Requires Minter role
-    /// @param _tokenId Token ID
-    /// @param _name New token name
-    /// @param _symbol New token symbol
-    function setTokenMetadata(uint256 _tokenId, string memory _name, string memory _symbol) external onlyMinter {
-        require(_msgSender() == minter, "!minter");
-        require(!_metadataInitialized.get(_tokenId), "metadataInitialized");
-
-        tokenName[_tokenId] = _name;
-        tokenSymbol[_tokenId] = _symbol;
-        _metadataInitialized.set(_tokenId);
-        emit SetTokenMetadata(_tokenId, _name, _symbol);
-    }
-
     /// @dev Mint new reNFT tokens
     /// @dev Requires Minter role
     /// @param _tokenId Token ID
     /// @param _to Address to transfer minted tokens
     /// @param _amount Amount to mint
-    function mint(uint256 _tokenId, address _to, uint256 _amount) external onlyMinter {
-        require(_metadataInitialized.get(_tokenId), "!metadataInitialized");
+    function mint(uint256 _tokenId, address _to, uint256 _amount) external {
+        require(_msgSender() == minter, "!minter");
         if (totalSupply(_tokenId) == 0) {
-            uint256 currentId_ = _currentId.current();
-            require(currentId_ == 0 || totalSupply(currentId_ - 1) > 0, "IDs should be sequential");
+            require(_tokenId == 0 || totalSupply(_tokenId - 1) > 0, "IDs should be sequential");
             _currentId.increment();
         }
         _mint(_to, _tokenId, _amount, bytes(""));
@@ -127,5 +100,6 @@ contract RealEstateERC1155 is RoyalERC1155 {
     function burn(uint256 _tokenId, uint256 _amount) external {
         require(_msgSender() == burner, "!burner");
         _burn(_msgSender(), _tokenId, _amount);
+        emit RealEstateNFTBurned(_tokenId, _msgSender(), _amount);
     }
 }

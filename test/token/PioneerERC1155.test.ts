@@ -10,7 +10,7 @@ import { expect } from "chai";
 chai.use(solidity);
 
 // Import contract types
-import type { PioneerERC1155, PioneerERC1155__factory } from "../../typechain-types";
+import type { PioneerERC1155, EthBlocker, PioneerERC1155__factory, EthBlocker__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
 import { ethers } from "hardhat";
@@ -343,6 +343,13 @@ describe("PioneerERC1155 Unit Tests", () => {
     ).to.be.revertedWith("Invalid Merkle root");
   });
 
+  it("initializeSale: revert if callet is not the admin", async () => {
+    // should revert with "!admin" message
+    await expect(
+      pioneerToken.initializeSale(ethers.utils.hexZeroPad(ethers.utils.hexlify(0), 32), PUBLIC_SALE_OFFSET),
+    ).to.be.revertedWith("!admin");
+  });
+
   describe("Sale begins", () => {
     let whitelistedWallets: Wallet[];
     let whitelistedMerkleTree: PioneerTree;
@@ -544,6 +551,17 @@ describe("PioneerERC1155 Unit Tests", () => {
         await expect(pioneerToken.withdraw(deployer.getAddress())).to.revertedWith("!admin");
       });
 
+      it("withdraw: should revert with 'Failed sending ethers' message if unable to send ethers", async () => {
+        // deploy EthBlocker contract
+        const ethBlockerFactory = <EthBlocker__factory>await ethers.getContractFactory("EthBlocker");
+        const ethBlocker = await ethBlockerFactory.connect(admin).deploy();
+
+        // should revert with "Failed sending ethers"
+        await expect(pioneerToken.connect(admin).withdraw(ethBlocker.address)).to.be.revertedWith(
+          "Failed sending ethers",
+        );
+      });
+
       it("withdraw: should emit Withdrawal", async () => {
         // get pioneer ether balance
         const pioneerEtherBalance = await ethers.provider.getBalance(pioneerToken.address);
@@ -626,7 +644,6 @@ describe("PioneerERC1155 Unit Tests", () => {
       it("claimAirdrop: should revert with '!airdrop' message if airdrop tokens are depleted", async () => {
         // claim all airdrop tokens
         for (let i = 1; i < airdropTree.airdropLength; i++) {
-          console.log();
           await pioneerToken
             .connect(AirdropSigners[i])
             .claimAirdrop(<BigNumberish>airdropTree.getAmountAt(i), airdropTree.proofsFromIndex(i));
