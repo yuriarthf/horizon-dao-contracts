@@ -1,4 +1,4 @@
-// PioneerERC1155.test.ts: Unit tests for SkyERC20 token
+// PioneerERC1155.test.ts: Unit tests for PioneerERC1155 token
 
 // Solidity extension for chai
 import { solidity } from "ethereum-waffle";
@@ -107,6 +107,83 @@ describe("PioneerERC1155 Unit Tests", () => {
       ]);
   });
 
+  it("Check collectionName", async () => {
+    // iterate over all pioneerNFT types and compare the collection names
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionName(id)).to.be.equal(collectionName(id));
+    }
+  });
+
+  it("collectionName: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.collectionName(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
+      "Invalid collection ID",
+    );
+  });
+
+  it("Check collectionDescription", async () => {
+    // iterate over all pioneerNFT types and compare the collection descriptions
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionDescription(id)).to.be.equal(collectionDescription(id));
+    }
+  });
+
+  it("collectionDescription: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.collectionDescription(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
+      "Invalid collection ID",
+    );
+  });
+
+  it("Check collectionMetadata", async () => {
+    // iterate over all pioneerNFT types and compare the collection metadata
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.collectionMetadata(id)).to.be.equal(collectionMetadata(id));
+    }
+  });
+
+  it("Check uri", async () => {
+    // iterate over all pioneerNFT types and compare the collection's uri
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      expect(await pioneerToken.uri(id)).to.be.equal(uri(id));
+    }
+  });
+
+  it("uri: should revert if provided id is greater than Pioneer.GOLD", async () => {
+    // should revert with "Invalid collection ID"
+    await expect(pioneerToken.uri(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith("Invalid collection ID");
+  });
+
+  it("Make sure saleInitialized return false before Sale is initialized", async () => {
+    // saleInitialized should return false
+    expect(await pioneerToken.saleInitialized()).to.be.false;
+  });
+
+  it("Check imageURI", async () => {
+    // iterate over all pioneerNFT types and compare the imageUri
+    let imageUri: string;
+    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
+      imageUri = await pioneerToken.imageURI(id);
+      expect(imageUri).to.be.equal(IMAGE_URI + id.toString());
+    }
+  });
+
+  it("imageURI: should revert if the caller is not the admin", async () => {
+    // should revert with "!admin" message
+    await expect(pioneerToken.setImageBaseURI(IMAGE_URI)).to.revertedWith("!admin");
+  });
+
+  it("imageURI: should revert if it's zero", async () => {
+    // set imageURI to empty string
+    await expect(pioneerToken.connect(admin).setImageBaseURI("")).to.emit(pioneerToken, "NewImageUri");
+
+    // should revert with "!baseURI"
+    await expect(pioneerToken.imageURI(Pioneer.GOLD)).to.be.revertedWith("!baseURI");
+
+    // set imageURI back to IMAGE_URI
+    await pioneerToken.connect(admin).setImageBaseURI(IMAGE_URI);
+  });
+
   describe("Constructor", () => {
     let pioneerTokenFactory: PioneerERC1155__factory;
 
@@ -185,83 +262,6 @@ describe("PioneerERC1155 Unit Tests", () => {
       // should revert with "Invalid _chance array" message
       await expect(deployTransaction).to.be.revertedWith("Invalid _chance array");
     });
-  });
-
-  it("Check imageURI", async () => {
-    // iterate over all pioneerNFT types and compare the imageUri
-    let imageUri: string;
-    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
-      imageUri = await pioneerToken.imageURI(id);
-      expect(imageUri).to.be.equal(IMAGE_URI + id.toString());
-    }
-  });
-
-  it("imageURI: should revert if the caller is not the admin", async () => {
-    // should revert with "!admin" message
-    await expect(pioneerToken.setImageBaseURI(IMAGE_URI)).to.revertedWith("!admin");
-  });
-
-  it("imageURI: should revert if it's zero", async () => {
-    // set imageURI to empty string
-    await expect(pioneerToken.connect(admin).setImageBaseURI("")).to.emit(pioneerToken, "NewImageUri");
-
-    // should revert with "!baseURI"
-    await expect(pioneerToken.imageURI(Pioneer.GOLD)).to.be.revertedWith("!baseURI");
-
-    // set imageURI back to IMAGE_URI
-    await pioneerToken.connect(admin).setImageBaseURI(IMAGE_URI);
-  });
-
-  it("Check collectionName", async () => {
-    // iterate over all pioneerNFT types and compare the collection names
-    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
-      expect(await pioneerToken.collectionName(id)).to.be.equal(collectionName(id));
-    }
-  });
-
-  it("collectionName: should revert if provided id is greater than Pioneer.GOLD", async () => {
-    // should revert with "Invalid collection ID"
-    await expect(pioneerToken.collectionName(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
-      "Invalid collection ID",
-    );
-  });
-
-  it("Check collectionDescription", async () => {
-    // iterate over all pioneerNFT types and compare the collection descriptions
-    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
-      expect(await pioneerToken.collectionDescription(id)).to.be.equal(collectionDescription(id));
-    }
-  });
-
-  it("collectionDescription: should revert if provided id is greater than Pioneer.GOLD", async () => {
-    // should revert with "Invalid collection ID"
-    await expect(pioneerToken.collectionDescription(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith(
-      "Invalid collection ID",
-    );
-  });
-
-  it("Check collectionMetadata", async () => {
-    // iterate over all pioneerNFT types and compare the collection metadata
-    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
-      expect(await pioneerToken.collectionMetadata(id)).to.be.equal(collectionMetadata(id));
-    }
-  });
-
-  it("Check uri", async () => {
-    // iterate over all pioneerNFT types and compare the collection's uri
-    for (let id = Pioneer.BRONZE; id <= Pioneer.GOLD; id++) {
-      expect(await pioneerToken.uri(id)).to.be.equal(uri(id));
-    }
-  });
-
-  it("uri: should revert if provided id is greater than Pioneer.GOLD", async () => {
-    // should revert with "Invalid collection ID"
-    await expect(pioneerToken.uri(BigNumber.from(Pioneer.GOLD).add(1))).to.be.revertedWith("Invalid collection ID");
-  });
-
-  it("Make sure saleInitialized return false before Sale is initialized", async () => {
-    // saleInitialized should return false
-    expect(await pioneerToken.saleInitialized()).to.be.false;
   });
 
   describe("Private claiming", () => {

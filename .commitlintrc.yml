@@ -1,4 +1,4 @@
 extends:
   - "@commitlint/config-conventional"
 rules:
-  body-case: [0, "never", "lower-case"]
+  subject-case: [0, "always", "lower-case"]

@@ -12,9 +12,8 @@ import { RoyalERC1155 } from "./RoyalERC1155.sol";
 /// @title Real Estate NFT
 /// @author Yuri Fernandes (HorizonDAO)
 /// @notice Used to Tokenize and Fractionate Real Estate
-/// @notice Users are required to renovate (check-in) after a certain amount of time
-///     or their assets can be liquidated (necessary since reNFT holders can claim deeds if a buyout occur)
-/// @notice Only a predefined minter can mint tokens and on a incremental order
+/// @notice Only minter can mint tokens and set token metadata
+/// @notice New tokens should be minted by incrementing the tokenId by 1
 contract RealEstateERC1155 is RoyalERC1155 {
     using BitMaps for BitMaps.BitMap;
     using Counters for Counters.Counter;
@@ -27,27 +26,27 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev Address of the burner: Can execute burning functions
     address public burner;
 
-    /// @dev mapping (collectionId => collectionName)
-    mapping(uint256 => string) public collectionName;
+    /// @dev mapping (tokenId => tokenName)
+    mapping(uint256 => string) public tokenName;
 
-    /// @dev mapping (collectionId => collectionSymbol)
-    mapping(uint256 => string) public collectionSymbol;
+    /// @dev mapping (tokenId => tokenSymbol)
+    mapping(uint256 => string) public tokenSymbol;
 
     /// @dev mapping (tokenId => isInitialized)
     /// @dev when a tokenId is initialized, it means it cannot change afterwards
     BitMaps.BitMap private _metadataInitialized;
 
-    /// @dev Current value shows the next available collection ID
+    /// @dev Current value shows the next available token ID
     Counters.Counter private _currentId;
 
-    /// @dev Emitted when a new reNFT collection metadata is configured
-    event SetCollectionMetadata(uint256 indexed _id, string _name, string _symbol);
+    /// @dev Emitted when a new reNFT token metadata is configured
+    event SetTokenMetadata(uint256 indexed _id, string _name, string _symbol);
 
     /// @dev Emitted when a new minter is set
-    event NewMinter(address indexed _minter);
+    event SetMinter(address indexed _by, address indexed _minter);
 
     /// @dev Emitted when a new burner is set
-    event NewBurner(address indexed _burner);
+    event SetBurner(address indexed _by, address indexed _burner);
 
     /// @dev Emitted when new reNFTs are minted
     event RealEstateNFTMinted(uint256 indexed _id, address indexed _minter, address indexed _to, uint256 _amount);
@@ -61,7 +60,7 @@ contract RealEstateERC1155 is RoyalERC1155 {
     /// @dev Initialize RealEstateNFT
     /// @param _baseUri Base URI for the offchain NFT metadata
     /// @param _admin Address with contract administration privileges
-    /// @param _owner EOA to be used as OpenSea collection admin
+    /// @param _owner EOA to be used as OpenSea token admin
     constructor(string memory _baseUri, address _admin, address _owner) RoyalERC1155(_baseUri, _admin, _owner) {}
 
     /// @notice Returns the name of the RealEstateERC1155 contract
@@ -74,20 +73,12 @@ contract RealEstateERC1155 is RoyalERC1155 {
         return "reNFT";
     }
 
-    /// @notice Returns the URI for the given reNFT collection
-    /// @param _id Collection ID
-    /// @return Concatenated BaseUri and collectionId
-    function uri(uint256 _id) public view override returns (string memory) {
-        require(exists(_id), "Non-existent collection id");
-        return string(abi.encodePacked(super.uri(_id), Strings.toString(_id)));
-    }
-
     /// @dev Set new minter role
     /// @param _minter New minter address
     function setMinter(address _minter) external onlyAdmin {
         require(minter != _minter, "Same minter");
         minter = _minter;
-        emit NewMinter(_minter);
+        emit SetMinter(_msgSender(), _minter);
     }
 
     /// @dev Set new burner role
@@ -95,46 +86,46 @@ contract RealEstateERC1155 is RoyalERC1155 {
     function setBurner(address _burner) external onlyAdmin {
         require(burner != _burner, "Same burner");
         burner = _burner;
-        emit NewBurner(_burner);
+        emit SetBurner(_msgSender(), _burner);
     }
 
-    /// @dev Sets the metadata for a new reNFT collection
+    /// @dev Sets the metadata for a new reNFT token
     /// @dev Requires Minter role
-    /// @param _id Collection ID
-    /// @param _name New collection name
-    /// @param _symbol New collection symbol
-    function setCollectionMetadata(uint256 _id, string memory _name, string memory _symbol) external onlyMinter {
+    /// @param _tokenId Token ID
+    /// @param _name New token name
+    /// @param _symbol New token symbol
+    function setTokenMetadata(uint256 _tokenId, string memory _name, string memory _symbol) external onlyMinter {
         require(_msgSender() == minter, "!minter");
-        require(!_metadataInitialized.get(_id), "metadataInitialized");
+        require(!_metadataInitialized.get(_tokenId), "metadataInitialized");
 
-        collectionName[_id] = _name;
-        collectionSymbol[_id] = _symbol;
-        _metadataInitialized.set(_id);
-        emit SetCollectionMetadata(_id, _name, _symbol);
+        tokenName[_tokenId] = _name;
+        tokenSymbol[_tokenId] = _symbol;
+        _metadataInitialized.set(_tokenId);
+        emit SetTokenMetadata(_tokenId, _name, _symbol);
     }
 
     /// @dev Mint new reNFT tokens
     /// @dev Requires Minter role
-    /// @param _id Collection ID
+    /// @param _tokenId Token ID
     /// @param _to Address to transfer minted tokens
     /// @param _amount Amount to mint
-    function mint(uint256 _id, address _to, uint256 _amount) external onlyMinter {
-        require(_metadataInitialized.get(_id), "!metadataInitialized");
-        if (totalSupply(_id) == 0) {
+    function mint(uint256 _tokenId, address _to, uint256 _amount) external onlyMinter {
+        require(_metadataInitialized.get(_tokenId), "!metadataInitialized");
+        if (totalSupply(_tokenId) == 0) {
             uint256 currentId_ = _currentId.current();
             require(currentId_ == 0 || totalSupply(currentId_ - 1) > 0, "IDs should be sequential");
             _currentId.increment();
         }
-        _mint(_to, _id, _amount, bytes(""));
-        emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
+        _mint(_to, _tokenId, _amount, bytes(""));
+        emit RealEstateNFTMinted(_tokenId, _msgSender(), _to, _amount);
     }
 
     /// @dev Burns own tokens
     /// @dev Requires Burner role
-    /// @param _id Collection ID
+    /// @param _tokenId Token ID
     /// @param _amount Amount of tokens to burn
-    function burn(uint256 _id, uint256 _amount) external {
+    function burn(uint256 _tokenId, uint256 _amount) external {
         require(_msgSender() == burner, "!burner");
-        _burn(_msgSender(), _id, _amount);
+        _burn(_msgSender(), _tokenId, _amount);
     }
 }

@@ -66,7 +66,7 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
     /// @param _owner Address with permissions on OpenSea
     constructor(string memory uri_, address _admin, address _owner) ERC1155(uri_) {
         // initialize owner as the "_owner", necessary for OpenSea
-        transferOwnership(_owner);
+        _transferOwnership(_owner);
 
         // set contract admin
         admin = _admin;
@@ -120,12 +120,7 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
     ///      Note: an "owner" set doesn't have any authority, and cannot even update "owner"
     /// @param _owner new "owner" of the smart contract
     function transferOwnership(address _owner) public virtual onlyAdmin {
-        // update "owner"
-        address oldOwner = owner;
-        owner = _owner;
-
-        // emit an event first - to log both old and new values
-        emit OwnershipTransferred(oldOwner, _owner);
+        _transferOwnership(_owner);
     }
 
     /**
@@ -136,5 +131,16 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
             interfaceId == type(IERC2981).interfaceId ||
             ERC1155.supportsInterface(interfaceId) ||
             ERC2981.supportsInterface(interfaceId);
+    }
+
+    /// @dev Set the smart contract owner
+    /// @param _owner new "owner" of the smart contract
+    function _transferOwnership(address _owner) internal {
+        // update "owner"
+        address oldOwner = owner;
+        owner = _owner;
+
+        // emit an event first - to log both old and new values
+        emit OwnershipTransferred(oldOwner, _owner);
     }
 }
