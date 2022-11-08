@@ -10,7 +10,12 @@ import { expect } from "chai";
 chai.use(solidity);
 
 // Import contract types
-import type { PioneerERC1155, EthBlocker, PioneerERC1155__factory, EthBlocker__factory } from "../../typechain-types";
+import type {
+  PioneerERC1155,
+  EthBlockerMock,
+  PioneerERC1155__factory,
+  EthBlockerMock__factory,
+} from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
 import { ethers } from "hardhat";
@@ -548,12 +553,12 @@ describe("PioneerERC1155 Unit Tests", () => {
       });
 
       it("withdraw: should revert with 'Failed sending ethers' message if unable to send ethers", async () => {
-        // deploy EthBlocker contract
-        const ethBlockerFactory = <EthBlocker__factory>await ethers.getContractFactory("EthBlocker");
-        const ethBlocker: EthBlocker = await ethBlockerFactory.connect(admin).deploy();
+        // deploy EthBlockerMock contract
+        const ethBlockerMockFactory = <EthBlockerMock__factory>await ethers.getContractFactory("EthBlockerMock");
+        const ethBlockerMock: EthBlockerMock = await ethBlockerMockFactory.connect(admin).deploy();
 
         // should revert with "Failed sending ethers"
-        await expect(pioneerToken.connect(admin).withdraw(ethBlocker.address)).to.be.revertedWith(
+        await expect(pioneerToken.connect(admin).withdraw(ethBlockerMock.address)).to.be.revertedWith(
           "Failed sending ethers",
         );
       });
