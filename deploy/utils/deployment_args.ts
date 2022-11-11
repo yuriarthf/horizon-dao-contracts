@@ -44,8 +44,8 @@ export const skyErc20Args = {
   rampValues: [], // How much the availableSupply will increase at each epoch start (n values)
 };
 
-/*************** FractionalRealEstateERC1155 ***************/
-export function fractionalRealEstateErc1155Args(network: string) {
+/*************** RealEstateERC1155 ***************/
+export function realEstateErc1155Args(network: string) {
   return {
     baseUri: "", // Base URI for the offchain NFT metadata
     admin: horizonMultisig[network], // Address with contract administration privileges

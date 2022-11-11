@@ -73,11 +73,6 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
         emit NewAdmin(_admin);
     }
 
-    /// @notice The denominator of which will be used to calculate the fee (feeNumerator/feeDenominator)
-    function feeDenominator() external pure returns (uint256) {
-        return _feeDenominator();
-    }
-
     /// @dev Set new admin role
     /// @param _admin New admin address
     function setAdmin(address _admin) external onlyAdmin {
@@ -113,7 +108,7 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
 
     /// @dev Restricted access function which updates the contract URI
     /// @param _contractURI new contract URI to set
-    function setContractURI(string memory _contractURI) public virtual onlyAdmin {
+    function setContractURI(string memory _contractURI) external virtual onlyAdmin {
         // update the contract URI
         contractURI = _contractURI;
 
@@ -121,11 +116,29 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
         emit ContractURIUpdated(msg.sender, _contractURI);
     }
 
+    /// @dev Sets `baseURI` as the `_baseURI` for all tokens
+    /// @param _baseURI Base URI to be prepended to the token URI
+    function setBaseURI(string memory _baseURI) external virtual onlyAdmin {
+        _setBaseURI(_baseURI);
+    }
+
+    /// @dev Sets `tokenURI` as the tokenURI of `tokenId`.
+    /// @param _tokenId ID of the token
+    /// @param _tokenURI URI of the token (will be prepended by _baseURI when uri function is called)
+    function setURI(uint256 _tokenId, string memory _tokenURI) external virtual onlyAdmin {
+        _setURI(_tokenId, _tokenURI);
+    }
+
     /// @dev Restricted access function to set smart contract "owner"
     ///      Note: an "owner" set doesn't have any authority, and cannot even update "owner"
     /// @param _owner new "owner" of the smart contract
-    function transferOwnership(address _owner) public virtual onlyAdmin {
+    function transferOwnership(address _owner) external virtual onlyAdmin {
         _transferOwnership(_owner);
+    }
+
+    /// @notice The denominator of which will be used to calculate the fee (feeNumerator/feeDenominator)
+    function feeDenominator() external pure returns (uint256) {
+        return _feeDenominator();
     }
 
     /**

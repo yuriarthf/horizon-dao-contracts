@@ -1,4 +1,4 @@
-// 2_deploy_FractionalRealEstateERC1155.ts: Deploy FractionalRealEstateERC1155
+// 2_deploy_RealEstateERC1155.ts: Deploy RealEstateERC1155
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -7,7 +7,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 // Import constructor arguments for the contracts
-import { fractionalRealEstateErc1155Args } from "./utils/deployment_args";
+import { realEstateErc1155Args } from "./utils/deployment_args";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get necessary hardhat-deploy functions
@@ -17,8 +17,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
 
   // deploy SKY token
-  const constructorArgs = Object.values(fractionalRealEstateErc1155Args(hre.network.name));
-  const deployResult = await deploy("FractionalRealEstateERC1155", {
+  const constructorArgs = Object.values(realEstateErc1155Args(hre.network.name));
+  const deployResult = await deploy("RealEstateERC1155", {
     from: deployer,
     args: constructorArgs,
     log: true,
@@ -35,5 +35,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 };
-func.tags = ["deploy", "FractionRealEstateNFT", "reNFT"];
+func.tags = ["deploy", "RealEstateNFT", "reNFT"];
 export default func;
