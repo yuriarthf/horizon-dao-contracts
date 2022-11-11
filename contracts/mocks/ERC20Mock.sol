@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Permit } from "../token/ERC20Permit.sol";
 
-contract ERC20Mock is ERC20 {
-    constructor() ERC20("test", "TEST") {}
+contract ERC20PermitMock is ERC20Permit {
+    constructor(string memory _name, string memory _symbol) ERC20Permit(_name, _symbol) {}
+
+    function freeMint(address _to, uint256 _amount) external {
+        _mint(_to, _amount);
+    }
 }

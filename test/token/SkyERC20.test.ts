@@ -58,16 +58,6 @@ describe("SkyERC20 Unit Tests", () => {
     ).to.be.revertedWith("MAX_SUPPLY");
   });
 
-  it("Supported interfaces", async () => {
-    // Interface IDs
-    const Ierc20InterfaceId = "0x36372b07";
-    const Ierc165InterfaceId = "0x01ffc9a7";
-
-    // Check if interfaces are supported
-    expect(await skyToken.supportsInterface(Ierc20InterfaceId)).to.be.true;
-    expect(await skyToken.supportsInterface(Ierc165InterfaceId)).to.be.true;
-  });
-
   it("Try to set roles with an account other than admin should revert", async () => {
     // set admin
     await expect(skyToken.connect(user).setAdmin(user.getAddress())).to.be.revertedWith("!admin");

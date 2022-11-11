@@ -42,17 +42,13 @@ abstract contract ERC20Permit is ERC20, IERC165 {
     /// @param _spender Spender address
     /// @param _value Amount to give allowance to `_spender`
     /// @param _deadline EIP-712 signed message validity
-    /// @param _v Last byte of the signed message hash (recovery identifier)
-    /// @param _r First 32 bytes of the signed message hash
-    /// @param _s Next 32 bytes of the signer message hash
+    /// @param _signature EIP-712 signature
     function permit(
         address _owner,
         address _spender,
         uint256 _value,
         uint256 _deadline,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
+        bytes memory _signature
     ) external {
         require(block.timestamp <= _deadline, "ERC20Permit: deadline reached");
 
@@ -62,7 +58,7 @@ abstract contract ERC20Permit is ERC20, IERC165 {
             keccak256(abi.encode(PERMIT_TYPEHASH, _owner, _spender, _value, nonce, _deadline))
         );
 
-        require(ECDSA.recover(permitHash, _v, _r, _s) == _owner, "ERC20Permit: invalid permit");
+        require(ECDSA.recover(permitHash, _signature) == _owner, "ERC20Permit: invalid permit");
 
         _nonces[_owner].increment();
         _approve(_owner, _spender, _value);
