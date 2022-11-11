@@ -16,14 +16,11 @@ import type { ERC20PermitMock, ERC20PermitMock__factory } from "../../typechain-
 import { ethers, network } from "hardhat";
 
 // Get BigNumber
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
 
-// Import BigNumber utility functions
-import { randomUint256 } from "../utils/bn_utils";
-
 // Import EVM utils
-import { now, setAccountBalance, setBlockTimestamp } from "../utils/evm_utils";
+import { now, setBlockTimestamp } from "../utils/evm_utils";
 
 describe("ERC20Permit Unit tests", () => {
   let erc20Permit: ERC20PermitMock;
