@@ -15,6 +15,9 @@
         "endOfLine": "auto"
       }
     ],
-    "reason-string": ["warn", { "maxLength": 64 }]
+    "reason-string": ["warn", { "maxLength": 64 }],
+    "no-empty-blocks": "off",
+    "func-name-mixedcase": "off",
+    "var-name-mixedcase": "off"
   }
 }

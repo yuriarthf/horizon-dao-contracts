@@ -99,7 +99,7 @@ contract PioneerERC1155 is RoyalERC1155 {
     event Withdrawal(address indexed _admin, address indexed _to, uint256 _amount);
 
     /// @dev Emitted when a PioneerNFT is purchased
-    event PioneerClaim(address indexed _by, Pioneer indexed _Pioneer, uint256 _unitPrice, uint256 _amount);
+    event PioneerClaim(address indexed _by, Pioneer indexed _pioneer, uint256 _unitPrice, uint256 _amount);
 
     /// @dev Emitted when an amount of Pioneer NFTs are claimed
     event PrivateClaim(address indexed _by);

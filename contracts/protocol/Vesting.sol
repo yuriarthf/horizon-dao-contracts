@@ -198,11 +198,7 @@ contract Vesting is Ownable {
     /// @param _positionId ID of the position to claim vested tokens
     /// @param _recipient Recipient of the vested tokens
     /// @param _lockVestedPeriod Amount of time to lock vested tokens (mandatory if lockVested is true)
-    function claim(
-        uint256 _positionId,
-        address _recipient,
-        uint256 _lockVestedPeriod
-    ) external {
+    function claim(uint256 _positionId, address _recipient, uint256 _lockVestedPeriod) external {
         Position memory userPosition = positions[_positionId];
         require(userPosition.beneficiary == _msgSender(), "Invalid position");
         require(userPosition.vestingStart >= block.timestamp, "Vesting hasn't started");

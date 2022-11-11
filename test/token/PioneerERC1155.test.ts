@@ -591,7 +591,7 @@ describe("PioneerERC1155 Unit Tests", () => {
         // get maximum airdrops and tokens per address
         maximumAirdrops = await pioneerToken.AIRDROP_MAX_CLAIMS();
         const tokensPerAddress = maximumAirdrops.div(AirdropSigners.length);
-        let airdropList: Airdrop[] = [];
+        const airdropList: Airdrop[] = [];
         for (const signer of AirdropSigners) {
           airdropList.push({ account: await signer.getAddress(), amount: tokensPerAddress });
         }

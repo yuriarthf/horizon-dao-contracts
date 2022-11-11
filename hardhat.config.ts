@@ -136,16 +136,6 @@ const config: HardhatUserConfig = {
           },
         },
       },
-      {
-        // used for dependencies (boring-solidity)
-        version: "0.6.12",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
     ],
   },
 
@@ -171,10 +161,7 @@ const config: HardhatUserConfig = {
   // compile Solidity sources directly from NPM dependencies
   // https://github.com/ItsNickBarry/hardhat-dependency-compiler
   dependencyCompiler: {
-    paths: [
-      // ERC1967 is used to deploy upgradeable contracts
-      "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol",
-    ],
+    paths: [],
   },
 
   // namedAccounts allows you to associate names to addresses and have them configured per chain

@@ -3,6 +3,6 @@ pragma solidity ^0.8.17;
 
 contract EthBlockerMock {
     receive() external payable {
-        revert();
+        revert("No ETH allowed!");
     }
 }
