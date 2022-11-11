@@ -141,9 +141,7 @@ abstract contract RoyalERC1155 is ERC2981, SingleApprovableERC1155 {
         return _feeDenominator();
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
+    /// @dev See {IERC165-supportsInterface}.
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, ERC2981) returns (bool) {
         return
             interfaceId == type(IERC2981).interfaceId ||
