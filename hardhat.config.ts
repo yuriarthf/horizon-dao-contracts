@@ -16,10 +16,6 @@ import "@nomiclabs/hardhat-waffle";
 // https://www.npmjs.com/package/@typechain/hardhat
 import "@typechain/hardhat";
 
-// compile Solidity sources directly from NPM dependencies
-// https://github.com/ItsNickBarry/hardhat-dependency-compiler
-import "hardhat-dependency-compiler";
-
 // adds a mechanism to deploy contracts to any network,
 // keeping track of them and replicating the same environment for testing
 // https://www.npmjs.com/package/hardhat-deploy
@@ -156,12 +152,6 @@ const config: HardhatUserConfig = {
   // https://hardhat.org/plugins/hardhat-gas-reporter.html
   gasReporter: {
     enabled: !!process.env.REPORT_GAS,
-  },
-
-  // compile Solidity sources directly from NPM dependencies
-  // https://github.com/ItsNickBarry/hardhat-dependency-compiler
-  dependencyCompiler: {
-    paths: [],
   },
 
   // namedAccounts allows you to associate names to addresses and have them configured per chain
