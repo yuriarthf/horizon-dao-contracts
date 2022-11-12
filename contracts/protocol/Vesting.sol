@@ -58,6 +58,9 @@ contract Vesting is Ownable {
     /// @dev ID of the next vested position ID
     Counters.Counter private _currentPositionId;
 
+    /// @dev How many positions vested (all tokens claimed)
+    Counters.Counter private _vestedPositions;
+
     /// @dev Array containing all vesting positions
     Position[] public positions;
 
@@ -90,54 +93,6 @@ contract Vesting is Ownable {
             "Underlying should be IERC20 compatible"
         );
         underlying = _underlying;
-    }
-
-    /// @notice Size of the positions array (how many vested positions exist)
-    function vestedPositions() external view returns (uint256) {
-        return _currentPositionId.current();
-    }
-
-    /// @notice Amount of underlying tokens Vesting contract owns
-    function totalSupply() public view returns (uint256) {
-        return IERC20(underlying).balanceOf(address(this));
-    }
-
-    /// @notice Amount of tokens available to be vested
-    function usableSupply() public view returns (uint256) {
-        return totalSupply() - totalVesting;
-    }
-
-    /// @notice Amount of vested tokens for a specific position
-    /// @param _positionId ID of the position
-    /// @return Claimable amount
-    function amountDue(uint256 _positionId) public view returns (uint256) {
-        Position memory userPosition = positions[_positionId];
-        return _amountDue(userPosition);
-    }
-
-    /// @notice Total amount of vested underlying for an user
-    /// @param _account User address
-    /// @return Total vested amount
-    function userTotalAmountDue(address _account) external view returns (uint256) {
-        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
-        uint256 totalAmountDue;
-        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
-            totalAmountDue += _amountDue(positions[userPositionIndexes_[i]]);
-        }
-        return totalAmountDue;
-    }
-
-    /// @notice Returns the position indexes for a given user (comma-separated)
-    /// @param _account User address
-    /// @return Comma-separated user positions' indexes
-    function getUserPositionIndexes(address _account) external view returns (string memory) {
-        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
-        bytes memory positionIndexes = "";
-        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
-            positionIndexes = abi.encodePacked(positionIndexes);
-            if (i != userPositionIndexes_.length) positionIndexes = abi.encodePacked(positionIndexes, ", ");
-        }
-        return string(positionIndexes);
     }
 
     /// @dev Set a vote escrow contract
@@ -203,7 +158,7 @@ contract Vesting is Ownable {
         require(userPosition.beneficiary == _msgSender(), "Invalid position");
         require(userPosition.vestingStart >= block.timestamp, "Vesting hasn't started");
         require(_recipient != address(0), "Invalid recipient");
-        uint256 amountDue_ = _amountDue(userPosition);
+        (uint256 amountDue_, uint256 prevAmountPaid_) = _amountDuePaid(userPosition);
         if (amountDue_ == 0) return;
         if (userPosition.lockVested || _lockVestedPeriod > 0) {
             require(voteEscrow != address(0), "No vote escrow");
@@ -212,25 +167,94 @@ contract Vesting is Ownable {
                 "Invalid lock time"
             );
             IERC20(underlying).safeApprove(voteEscrow, amountDue_);
-            IVoteEscrow(voteEscrow).lock(amountDue_, _lockVestedPeriod);
+            IVoteEscrow(voteEscrow).lock(_recipient, amountDue_, _lockVestedPeriod);
         } else {
             IERC20(underlying).safeTransfer(_recipient, amountDue_);
         }
         positions[_positionId].amountPaid += amountDue_;
         totalVesting -= amountDue_;
 
+        if (prevAmountPaid_ + amountDue_ == 0) _vestedPositions.increment();
+
         emit AmountClaimed(_msgSender(), _recipient, amountDue_, _lockVestedPeriod);
     }
 
-    /// @dev Calculates the amount of vested tokens due for a given position
+    /// @notice Size of the positions array (how many vested positions exist)
+    function vestedPositions() external view returns (uint256) {
+        return _currentPositionId.current();
+    }
+
+    /// @notice How many position still contain vesting tokens
+    function activeVestedPositions() external view returns (uint256) {
+        return _currentPositionId.current() - _vestedPositions.current();
+    }
+
+    /// @notice Amount of underlying tokens Vesting contract owns
+    function totalSupply() public view returns (uint256) {
+        return IERC20(underlying).balanceOf(address(this));
+    }
+
+    /// @notice Amount of tokens available to be vested
+    function usableSupply() public view returns (uint256) {
+        return totalSupply() - totalVesting;
+    }
+
+    /// @notice Amount of vested tokens for a specific position
+    /// @param _positionId ID of the position
+    /// @return Claimable amount
+    function amountDue(uint256 _positionId) public view returns (uint256) {
+        Position memory userPosition = positions[_positionId];
+        (uint256 amountDue_, ) = _amountDuePaid(userPosition);
+        return amountDue_;
+    }
+
+    /// @notice Amount of vested tokens paid for a specific position
+    /// @param _positionId ID of the position
+    /// @return Paid amount
+    function amountPaid(uint256 _positionId) public view returns (uint256) {
+        Position memory userPosition = positions[_positionId];
+        (, uint256 amountPaid_) = _amountDuePaid(userPosition);
+        return amountPaid_;
+    }
+
+    /// @notice Total amount of vested underlying for an user
+    /// @param _account User address
+    /// @return Total vested amount
+    function userTotalAmountDue(address _account) external view returns (uint256) {
+        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
+        uint256 totalAmountDue;
+        uint256 amountDue_;
+        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
+            (amountDue_, ) = _amountDuePaid(positions[userPositionIndexes_[i]]);
+            totalAmountDue += amountDue_;
+        }
+        return totalAmountDue;
+    }
+
+    /// @notice Returns the position indexes for a given user (comma-separated)
+    /// @param _account User address
+    /// @return Comma-separated user positions' indexes
+    function getUserPositionIndexes(address _account) external view returns (string memory) {
+        uint256[] memory userPositionIndexes_ = userPositionIndexes[_account];
+        bytes memory positionIndexes = "";
+        for (uint256 i = 0; i < userPositionIndexes_.length; i++) {
+            positionIndexes = abi.encodePacked(positionIndexes);
+            if (i != userPositionIndexes_.length) positionIndexes = abi.encodePacked(positionIndexes, ", ");
+        }
+        return string(positionIndexes);
+    }
+
+    /// @dev Calculates the amount of vested tokens due for a given position and the amount already paid
     /// @param _position Position instance
-    /// @return claimable amount
-    function _amountDue(Position memory _position) internal view returns (uint256) {
-        return
+    /// @return amountDue_ Claimable amount
+    /// @return amountPaid_ Paid amount
+    function _amountDuePaid(Position memory _position) internal view returns (uint256 amountDue_, uint256 amountPaid_) {
+        amountPaid_ = _position.amountPaid;
+        amountDue_ =
             ((((
                 block.timestamp < _position.vestingEnd ? block.timestamp : _position.vestingEnd - _position.vestingStart
             ) * _position.amount) * BASE_MULTIPLIER) / (_position.vestingEnd - _position.vestingStart)) /
             BASE_MULTIPLIER -
-            _position.amountPaid;
+            amountPaid_;
     }
 }

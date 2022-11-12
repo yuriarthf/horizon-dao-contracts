@@ -71,7 +71,7 @@ abstract contract ERC20Permit is ERC20, IERC165 {
     }
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure virtual returns (bool) {
         return type(IERC165).interfaceId == interfaceId || type(IERC20).interfaceId == interfaceId;
     }
 }
