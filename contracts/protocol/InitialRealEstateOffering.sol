@@ -71,10 +71,6 @@ contract InitialRealEstateOffering is Ownable {
         uint256 indexed _id,
         address indexed _listingOwner,
         uint256 _unitPrice,
-        uint128 _minSupply,
-        uint128 _maxSupply,
-        uint64 _start,
-        uint64 _end,
         uint16 _listingOwnerShare,
         uint16 _treasuryFee,
         uint256 _rewardsPerPeriod
@@ -124,18 +120,16 @@ contract InitialRealEstateOffering is Ownable {
         require(_minSupply <= _maxSupply, "!_minSupply");
 
         uint256 currentId = iroLength();
-        uint64 start = now64() + _startOffset;
-        uint64 end = start + _numberOfPeriods * PERIOD;
         uint256 rewardsPerPeriod = _incentives / _numberOfPeriods;
         iros[currentId] = IRO({
             listingOwner: _listingOwner,
-            start: start,
+            start: now64() + _startOffset,
             treasuryFee: _treasuryFee,
             listingOwnerShare: _listingOwnerShare,
             minSupply: _minSupply,
             maxSupply: _maxSupply,
             unitPrice: _unitPrice,
-            end: end,
+            end: now64() + _startOffset + _numberOfPeriods * PERIOD,
             rewardsPerPeriod: rewardsPerPeriod,
             totalFunding: 0
         });
@@ -143,18 +137,7 @@ contract InitialRealEstateOffering is Ownable {
 
         IERC20(basePriceToken).safeTransferFrom(msg.sender, address(this), rewardsPerPeriod * _numberOfPeriods);
 
-        emit CreateIRO(
-            currentId,
-            _listingOwner,
-            _unitPrice,
-            _minSupply,
-            _maxSupply,
-            start,
-            end,
-            _listingOwnerShare,
-            _treasuryFee,
-            rewardsPerPeriod
-        );
+        emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, rewardsPerPeriod);
     }
 
     function commitToIRO(uint256 _iroId, uint256 _value, address _paymentToken) external payable {
