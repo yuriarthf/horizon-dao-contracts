@@ -3,32 +3,20 @@ pragma solidity ^0.8.17;
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
-
 import { IUniswapV2Router02 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-interface IERC20Extended is IERC20 {
-    function decimals() external view returns (uint8);
-}
+import { IROFinance } from "../libraries/IROFinance.sol";
 
 contract InitialRealEstateOffering is Ownable {
     using Counters for Counters.Counter;
-    using SafeERC20 for IERC20;
+    using IROFinance for IROFinance.Finance;
 
     uint16 public constant FEE_BASIS_POINT = 10000;
     uint16 public constant SHARE_BASIS_POINT = 10000;
     uint64 public constant PERIOD = 1 days;
     uint64 public constant MIN_NUMBER_OF_PERIODS = 30; // 30 days
-
-    struct Commit {
-        uint128 amountOfTokens;
-        uint64 periodNumber;
-        uint256 accumulatedRewards;
-    }
 
     /// @dev Initial Real Estate Offerring structure
     /// @dev Since timestamps are 64 bit integers, last IRO
@@ -42,17 +30,13 @@ contract InitialRealEstateOffering is Ownable {
         uint128 maxSupply;
         uint256 unitPrice;
         uint64 end;
-        uint256 rewardsPerPeriod;
         uint256 totalFunding;
     }
 
     address public treasury;
     address public realEstateNft;
-    address public basePriceToken;
 
-    IUniswapV2Router02 public swapRouter;
-    FeedRegistryInterface public priceFeedRegistry;
-    address public weth;
+    IROFinance.Finance public finance;
 
     Counters.Counter private _nextAvailableId;
 
@@ -60,7 +44,7 @@ contract InitialRealEstateOffering is Ownable {
     mapping(uint256 => IRO) public iros;
 
     /// @dev mapping (iroId => user => commit)
-    mapping(uint256 => mapping(address => Commit)) public commits;
+    mapping(uint256 => mapping(address => uint256)) public commits;
 
     /// @dev mapping (iroId => period => totalFunding)
     mapping(uint256 => uint256[]) public totalFundingPerPeriod;
@@ -73,7 +57,16 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _unitPrice,
         uint16 _listingOwnerShare,
         uint16 _treasuryFee,
-        uint256 _rewardsPerPeriod
+        uint64 _start,
+        uint64 _end
+    );
+
+    event Commit(
+        uint256 indexed _iroId,
+        address indexed _user,
+        address indexed _paymentToken,
+        uint256 _amountInBase,
+        uint256 _purchasedTokens
     );
 
     constructor(
@@ -92,15 +85,15 @@ contract InitialRealEstateOffering is Ownable {
         require(_weth != address(0), "!_weth");
         realEstateNft = _realEstateNft;
         treasury = _treasury;
-        basePriceToken = _basePriceToken;
-        priceFeedRegistry = FeedRegistryInterface(_priceFeedRegistry);
-        swapRouter = IUniswapV2Router02(_swapRouter);
-        weth = _weth;
+        finance.swapRouter = IUniswapV2Router02(_swapRouter);
+        finance.priceFeedRegistry = FeedRegistryInterface(_priceFeedRegistry);
+        finance.weth = _weth;
+        finance.basePriceToken = _basePriceToken;
     }
 
     function setBasePriceToken(address _basePriceToken) external onlyOwner {
         require(_basePriceToken != address(0), "!_basePriceToken");
-        basePriceToken = _basePriceToken;
+        finance.basePriceToken = _basePriceToken;
     }
 
     function createIRO(
@@ -111,8 +104,7 @@ contract InitialRealEstateOffering is Ownable {
         uint128 _minSupply,
         uint128 _maxSupply,
         uint256 _unitPrice,
-        uint64 _startOffset,
-        uint256 _incentives
+        uint64 _startOffset
     ) external onlyOwner {
         require(_numberOfPeriods >= MIN_NUMBER_OF_PERIODS, "!_numberOfPeriods");
         require(_listingOwnerShare <= SHARE_BASIS_POINT, "!_listingOwnerShare");
@@ -120,24 +112,22 @@ contract InitialRealEstateOffering is Ownable {
         require(_minSupply <= _maxSupply, "!_minSupply");
 
         uint256 currentId = iroLength();
-        uint256 rewardsPerPeriod = _incentives / _numberOfPeriods;
+        uint64 start_ = now64() + _startOffset;
+        uint64 end_ = start_ + _numberOfPeriods * PERIOD;
         iros[currentId] = IRO({
             listingOwner: _listingOwner,
-            start: now64() + _startOffset,
+            start: start_,
             treasuryFee: _treasuryFee,
             listingOwnerShare: _listingOwnerShare,
             minSupply: _minSupply,
             maxSupply: _maxSupply,
             unitPrice: _unitPrice,
-            end: now64() + _startOffset + _numberOfPeriods * PERIOD,
-            rewardsPerPeriod: rewardsPerPeriod,
+            end: end_,
             totalFunding: 0
         });
         _nextAvailableId.increment();
 
-        IERC20(basePriceToken).safeTransferFrom(msg.sender, address(this), rewardsPerPeriod * _numberOfPeriods);
-
-        emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, rewardsPerPeriod);
+        emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
 
     function commitToIRO(uint256 _iroId, uint256 _value, address _paymentToken) external payable {
@@ -145,52 +135,16 @@ contract InitialRealEstateOffering is Ownable {
         IRO memory iro = getIRO(_iroId);
         require(_isIroActive(iro), "IRO is inactive");
 
-        uint128 purchasingAmount;
-        if (_paymentToken == basePriceToken) {
-            purchasingAmount = uint128(_value / iro.unitPrice);
-            require(purchasingAmount > 0, "Insufficient payment");
-            IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), purchasingAmount * iro.unitPrice);
-        } else {
-            uint256 effectiveValue;
-            if (_paymentToken != address(0)) {
-                (, int256 priceInBase, , , ) = priceFeedRegistry.latestRoundData(_paymentToken, basePriceToken);
-                uint256 baseQuote = uint256(_scalePrice(priceInBase, basePriceToken));
-                uint256 paymentTokenDecimals = 10 ** uint256(IERC20Extended(_paymentToken).decimals());
-                purchasingAmount = uint128(((_value * baseQuote) / iro.unitPrice) / paymentTokenDecimals);
-                require(purchasingAmount > 0, "Insufficient payment");
-                effectiveValue = uint256((purchasingAmount * iro.unitPrice * paymentTokenDecimals) / baseQuote);
-                IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), effectiveValue);
-                IERC20(_paymentToken).safeApprove(address(swapRouter), effectiveValue);
-                address[] memory path = new address[](2);
-                path[0] = _paymentToken;
-                path[1] = basePriceToken;
-                swapRouter.swapExactTokensForTokens(
-                    effectiveValue,
-                    purchasingAmount * iro.unitPrice,
-                    path,
-                    address(this),
-                    block.timestamp
-                );
-            } else {
-                (, int256 priceInBase, , , ) = priceFeedRegistry.latestRoundData(Denominations.ETH, basePriceToken);
-                uint256 baseQuote = uint256(_scalePrice(priceInBase, basePriceToken));
-                purchasingAmount = uint128(((_value * baseQuote) / iro.unitPrice) / 10 ** 18);
-                require(purchasingAmount > 0, "Insufficient payment");
-                effectiveValue = uint256((purchasingAmount * iro.unitPrice * 10 ** 18) / baseQuote);
-                address[] memory path = new address[](2);
-                path[0] = weth;
-                path[1] = basePriceToken;
-                swapRouter.swapExactETHForTokens{ value: effectiveValue }(
-                    purchasingAmount * iro.unitPrice,
-                    path,
-                    address(this),
-                    block.timestamp
-                );
-                _sendValue(msg.sender, msg.value - effectiveValue);
-            }
-        }
+        (uint128 purchasedAmount, uint256 valueInBase) = finance.processPaymentForToken(
+            _value,
+            _paymentToken,
+            iro.unitPrice
+        );
 
-        // Update commit (don't forget to accumulate rewards before adding value in case the last commit period is over)
+        commits[_iroId][msg.sender] += purchasedAmount;
+        iros[_iroId].totalFunding += valueInBase;
+
+        emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, purchasedAmount);
     }
 
     function iroFinished(uint256 _iroId) external view returns (bool) {
@@ -227,20 +181,6 @@ contract InitialRealEstateOffering is Ownable {
         require(now64() < _iro.end, "IRO finished");
         if (now64() < _iro.start) return 0;
         return (now64() - _iro.start) / PERIOD + 1;
-    }
-
-    function _scalePrice(int256 _price, address _token) internal view returns (int256) {
-        uint8 priceDecimals = priceFeedRegistry.decimals(
-            _token != address(0) ? _token : Denominations.ETH,
-            basePriceToken
-        );
-        uint8 tokenDecimals = IERC20Extended(_token).decimals();
-        if (priceDecimals < tokenDecimals) {
-            return _price * int256(10 ** uint256(tokenDecimals - priceDecimals));
-        } else if (priceDecimals > tokenDecimals) {
-            return _price * int256(10 ** uint256(priceDecimals - tokenDecimals));
-        }
-        return _price;
     }
 
     /// @dev Utility function to send an amount of ethers to a given address
