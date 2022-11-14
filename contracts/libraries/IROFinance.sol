@@ -15,6 +15,7 @@ interface IERC20Extended is IERC20 {
 
 library IROFinance {
     using SafeERC20 for IERC20;
+    uint16 public constant SLIPPAGE_DIVISOR = 10000;
     uint8 public constant ETH_DECIMALS = 18;
 
     struct Finance {
@@ -24,18 +25,20 @@ library IROFinance {
         address basePriceToken;
     }
 
-    // TODO: Implement slippage
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
         uint256 _amountToPurchase,
-        address _paymentToken
+        address _paymentToken,
+        uint16 _slippage
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _finance.basePriceToken) {
             IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
-            uint256 valueInPaymentToken = convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
+            uint256 valueInPaymentToken = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
+                SLIPPAGE_DIVISOR +
+                _slippage) / SLIPPAGE_DIVISOR;
             IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInPaymentToken);
             IERC20(_paymentToken).safeApprove(address(_finance.swapRouter), valueInPaymentToken);
             address[] memory path = new address[](2);
@@ -52,7 +55,9 @@ library IROFinance {
                 IERC20(_paymentToken).safeTransfer(msg.sender, valueInPaymentToken - amounts[0]);
             }
         } else {
-            uint256 valueInEth = convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
+            uint256 valueInEth = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
+                SLIPPAGE_DIVISOR +
+                _slippage) / SLIPPAGE_DIVISOR;
             require(msg.value >= valueInEth, "Not enough ethers sent");
             address[] memory path = new address[](2);
             path[0] = _finance.weth;
@@ -63,7 +68,9 @@ library IROFinance {
                 address(this),
                 block.timestamp
             );
-            sendValue(msg.sender, msg.value - amounts[0]);
+            if (msg.value > amounts[0]) {
+                sendValue(msg.sender, msg.value - amounts[0]);
+            }
         }
     }
 

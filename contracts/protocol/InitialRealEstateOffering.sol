@@ -131,8 +131,14 @@ contract InitialRealEstateOffering is Ownable {
         emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
 
-    function commit(uint256 _iroId, address _paymentToken, uint256 _amountToPurchase) external payable {
+    function commit(
+        uint256 _iroId,
+        address _paymentToken,
+        uint256 _amountToPurchase,
+        uint16 _slippage
+    ) external payable {
         require(_amountToPurchase > 0, "_amountToBuy should be greater than zero");
+        require(_slippage <= IROFinance.SLIPPAGE_DIVISOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_isIroActive(iro), "IRO is inactive");
         require(iro.totalFunding + _amountToPurchase <= iro.hardCap, "Hardcap reached");
@@ -140,12 +146,16 @@ contract InitialRealEstateOffering is Ownable {
             IROFinance.sendValue(msg.sender, msg.value);
         }
 
-        uint256 valueInBase = finance.processPayment(iro.unitPrice, _amountToPurchase, _paymentToken);
+        uint256 valueInBase = finance.processPayment(iro.unitPrice, _amountToPurchase, _paymentToken, _slippage);
 
         commits[_iroId][msg.sender] += _amountToPurchase;
         iros[_iroId].totalFunding += valueInBase;
 
         emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, _amountToPurchase);
+    }
+
+    function maxSlippage() external pure returns (uint16) {
+        return IROFinance.SLIPPAGE_DIVISOR;
     }
 
     function iroFinished(uint256 _iroId) external view returns (bool) {
