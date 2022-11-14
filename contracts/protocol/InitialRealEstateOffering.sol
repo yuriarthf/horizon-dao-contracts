@@ -5,6 +5,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
+
 import { IUniswapV2Router02 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import { IROFinance } from "../libraries/IROFinance.sol";
@@ -26,10 +27,10 @@ contract InitialRealEstateOffering is Ownable {
         uint64 start;
         uint16 treasuryFee;
         uint16 listingOwnerShare;
-        uint128 minSupply;
-        uint128 maxSupply;
-        uint256 unitPrice;
         uint64 end;
+        uint256 softCap;
+        uint256 hardCap;
+        uint256 unitPrice;
         uint256 totalFunding;
     }
 
@@ -101,15 +102,15 @@ contract InitialRealEstateOffering is Ownable {
         uint16 _listingOwnerShare,
         uint16 _treasuryFee,
         uint64 _numberOfPeriods,
-        uint128 _minSupply,
-        uint128 _maxSupply,
+        uint256 _softCap,
+        uint256 _hardCap,
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
         require(_numberOfPeriods >= MIN_NUMBER_OF_PERIODS, "!_numberOfPeriods");
         require(_listingOwnerShare <= SHARE_BASIS_POINT, "!_listingOwnerShare");
         require(_treasuryFee <= FEE_BASIS_POINT, "!_treasuryFee");
-        require(_minSupply <= _maxSupply, "!_minSupply");
+        require(_softCap <= _hardCap, "_softCap > _hardCap");
 
         uint256 currentId = iroLength();
         uint64 start_ = now64() + _startOffset;
@@ -119,10 +120,10 @@ contract InitialRealEstateOffering is Ownable {
             start: start_,
             treasuryFee: _treasuryFee,
             listingOwnerShare: _listingOwnerShare,
-            minSupply: _minSupply,
-            maxSupply: _maxSupply,
-            unitPrice: _unitPrice,
             end: end_,
+            softCap: _softCap,
+            hardCap: _hardCap,
+            unitPrice: _unitPrice,
             totalFunding: 0
         });
         _nextAvailableId.increment();
@@ -130,21 +131,21 @@ contract InitialRealEstateOffering is Ownable {
         emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
 
-    function commitToIRO(uint256 _iroId, uint256 _value, address _paymentToken) external payable {
-        require(_value > 0, "_value should be greater than 0");
+    function commit(uint256 _iroId, address _paymentToken, uint256 _amountToPurchase) external payable {
+        require(_amountToPurchase > 0, "_amountToBuy should be greater than zero");
         IRO memory iro = getIRO(_iroId);
         require(_isIroActive(iro), "IRO is inactive");
+        require(iro.totalFunding + _amountToPurchase <= iro.hardCap, "Hardcap reached");
+        if (_paymentToken != address(0) && msg.value > 0) {
+            IROFinance.sendValue(msg.sender, msg.value);
+        }
 
-        (uint128 purchasedAmount, uint256 valueInBase) = finance.processPaymentForToken(
-            _value,
-            _paymentToken,
-            iro.unitPrice
-        );
+        uint256 valueInBase = finance.processPayment(iro.unitPrice, _amountToPurchase, _paymentToken);
 
-        commits[_iroId][msg.sender] += purchasedAmount;
+        commits[_iroId][msg.sender] += _amountToPurchase;
         iros[_iroId].totalFunding += valueInBase;
 
-        emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, purchasedAmount);
+        emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, _amountToPurchase);
     }
 
     function iroFinished(uint256 _iroId) external view returns (bool) {
@@ -181,13 +182,5 @@ contract InitialRealEstateOffering is Ownable {
         require(now64() < _iro.end, "IRO finished");
         if (now64() < _iro.start) return 0;
         return (now64() - _iro.start) / PERIOD + 1;
-    }
-
-    /// @dev Utility function to send an amount of ethers to a given address
-    /// @param _to Address to send ethers
-    /// @param _amount Amount of ethers to send
-    function _sendValue(address _to, uint256 _amount) internal {
-        (bool success, ) = _to.call{ value: _amount }("");
-        require(success, "Failed sending ethers");
     }
 }
