@@ -52,7 +52,7 @@ library IROFinance {
                 block.timestamp
             );
             if (amounts[0] < valueInPaymentToken) {
-                IERC20(_paymentToken).safeTransfer(msg.sender, valueInPaymentToken - amounts[0]);
+                sendErc20(msg.sender, valueInPaymentToken - amounts[0], _paymentToken);
             }
         } else {
             uint256 valueInEth = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
@@ -69,7 +69,7 @@ library IROFinance {
                 block.timestamp
             );
             if (msg.value > amounts[0]) {
-                sendValue(msg.sender, msg.value - amounts[0]);
+                sendEther(msg.sender, msg.value - amounts[0]);
             }
         }
     }
@@ -77,9 +77,13 @@ library IROFinance {
     /// @dev Utility function to send an amount of ethers to a given address
     /// @param _to Address to send ethers
     /// @param _amount Amount of ethers to send
-    function sendValue(address _to, uint256 _amount) internal {
+    function sendEther(address _to, uint256 _amount) internal {
         (bool success, ) = _to.call{ value: _amount }("");
         require(success, "Failed sending ethers");
+    }
+
+    function sendErc20(address _to, uint256 _amount, address _token) internal {
+        IERC20(_token).safeTransfer(_to, _amount);
     }
 
     function convertBaseToPaymentToken(
