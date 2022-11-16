@@ -37,8 +37,12 @@ describe("RealEstateERC1155 Unit Tests", () => {
 
     // deploy RealEstateERC1155 contract
     const realEstateTokenFactory = <RealEstateERC1155__factory>await ethers.getContractFactory("RealEstateERC1155");
-    realEstateToken = <RealEstateERC1155>(
-      await upgrades.deployProxy(realEstateTokenFactory, [URI, await admin.getAddress(), await owner.getAddress()])
+    realEstateToken = <RealEstateERC1155>await upgrades.deployProxy(
+      realEstateTokenFactory,
+      [URI, await admin.getAddress(), await owner.getAddress()],
+      {
+        deployer,
+      },
     );
   });
 
