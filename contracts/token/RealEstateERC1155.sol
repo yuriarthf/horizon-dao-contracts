@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import { IERC1155MetadataURI } from "@openzeppelin/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol";
-import { BitMaps } from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
-import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
-import { RoyalERC1155 } from "./RoyalERC1155.sol";
+import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import { IERC1155MetadataURIUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/IERC1155MetadataURIUpgradeable.sol";
+import { BitMapsUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/structs/BitMapsUpgradeable.sol";
+import { CountersUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
+import { StringsUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
+import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import { RoyalERC1155Upgradeable } from "./RoyalERC1155Upgradeable.sol";
 
 /// @title Real Estate NFT
 /// @author Yuri Fernandes (HorizonDAO)
 /// @notice Used to Tokenize and Fractionate Real Estate
 /// @notice Only minter can mint tokens and set token metadata
 /// @notice New tokens should be minted by incrementing the tokenId by 1
-contract RealEstateERC1155 is RoyalERC1155 {
-    using BitMaps for BitMaps.BitMap;
-    using Counters for Counters.Counter;
-    using Strings for uint256;
-    using Address for address;
+contract RealEstateERC1155 is RoyalERC1155Upgradeable {
+    using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
+    using CountersUpgradeable for CountersUpgradeable.Counter;
+    using StringsUpgradeable for uint256;
+    using AddressUpgradeable for address;
 
     /// @dev Address of the minter: Can execute mint function
     address public minter;
@@ -27,7 +27,7 @@ contract RealEstateERC1155 is RoyalERC1155 {
     address public burner;
 
     /// @dev Current value shows the next available token ID
-    Counters.Counter private _currentId;
+    CountersUpgradeable.Counter private _currentId;
 
     /// @dev Emitted when a new minter is set
     event SetMinter(address indexed _by, address indexed _minter);
@@ -42,10 +42,12 @@ contract RealEstateERC1155 is RoyalERC1155 {
     event RealEstateNFTBurned(uint256 indexed _id, address indexed _burner, uint256 _amount);
 
     /// @dev Initialize RealEstateNFT
-    /// @param _baseUri Base URI for the offchain NFT metadata
+    /// @param _uri Standard (fallback) URI for the offchain NFT metadata
     /// @param _admin Address with contract administration privileges
     /// @param _owner EOA to be used as OpenSea token admin
-    constructor(string memory _baseUri, address _admin, address _owner) RoyalERC1155(_baseUri, _admin, _owner) {}
+    function initialize(string memory _uri, address _admin, address _owner) public initializer {
+        __RoyalERC1155_init(_uri, _admin, _owner);
+    }
 
     /// @notice Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {
@@ -102,4 +104,11 @@ contract RealEstateERC1155 is RoyalERC1155 {
         _burn(_msgSender(), _id, _amount);
         emit RealEstateNFTBurned(_id, _msgSender(), _amount);
     }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[47] private __gap;
 }
