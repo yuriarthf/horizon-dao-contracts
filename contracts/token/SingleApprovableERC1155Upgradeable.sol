@@ -5,26 +5,56 @@ import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ER
 import { ERC1155SupplyUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol";
 import { ERC1155URIStorageUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155URIStorageUpgradeable.sol";
 import { IERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155Upgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title Upgradeable Siple Approvable ERC1155
 /// @author Yuri Fernandes (HorizonDAO)
 /// @dev Allows the approval for a single collection and a certain amount of tokens
 ///     to be transferred with the allowed party
-abstract contract SingleApprovableERC1155Upgradeable is ERC1155URIStorageUpgradeable, ERC1155SupplyUpgradeable {
-    function __SingleApprovableERC1155_init(string memory _uri) internal onlyInitializing {
+abstract contract SingleApprovableERC1155Upgradeable is
+    UUPSUpgradeable,
+    ERC1155URIStorageUpgradeable,
+    ERC1155SupplyUpgradeable
+{
+    function __SingleApprovableERC1155_init(string memory _uri, address _admin) internal onlyInitializing {
+        __UUPSUpgradeable_init();
         __ERC1155_init(_uri);
         __ERC1155URIStorage_init();
         __ERC1155Supply_init();
-        __SingleApprovableERC1155_init_unchained();
+        __SingleApprovableERC1155_init_unchained(_admin);
     }
 
-    function __SingleApprovableERC1155_init_unchained() internal onlyInitializing {}
+    function __SingleApprovableERC1155_init_unchained(address _admin) internal onlyInitializing {
+        // set contract admin
+        admin = _admin;
+        emit NewAdmin(_admin);
+    }
+
+    /// @dev Address of the admin: Can set a new admin among other privileged roles
+    address public admin;
 
     /// @dev mapping (collectionId => owner => spender => amount)
     mapping(uint256 => mapping(address => mapping(address => uint256))) private _allowances;
 
     /// @dev Emitted when allowance is given
     event Approval(uint256 indexed _id, address indexed _owner, address indexed _spender, uint256 _amount);
+
+    /// @dev Emitted when a new admin is set
+    event NewAdmin(address indexed _admin);
+
+    /// @dev Checks if msg.sender is the admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "!admin");
+        _;
+    }
+
+    /// @dev Set new admin role
+    /// @param _admin New admin address
+    function setAdmin(address _admin) external onlyAdmin {
+        require(admin != _admin, "admin == _admin");
+        admin = _admin;
+        emit NewAdmin(_admin);
+    }
 
     /// @notice Approve a spender to transfer tokens
     /// @param _tokenId Collection ID
@@ -99,10 +129,13 @@ abstract contract SingleApprovableERC1155Upgradeable is ERC1155URIStorageUpgrade
         ERC1155SupplyUpgradeable._beforeTokenTransfer(_operator, _from, _to, _ids, _amounts, _data);
     }
 
+    /// @dev Restrict upgrading to the admin role
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyAdmin {}
+
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 }

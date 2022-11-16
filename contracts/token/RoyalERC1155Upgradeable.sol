@@ -13,25 +13,18 @@ import { SingleApprovableERC1155Upgradeable } from "./SingleApprovableERC1155Upg
 abstract contract RoyalERC1155Upgradeable is ERC2981Upgradeable, SingleApprovableERC1155Upgradeable {
     function __RoyalERC1155_init(string memory _uri, address _admin, address _owner) internal onlyInitializing {
         __ERC2981_init();
-        __SingleApprovableERC1155_init(_uri);
-        __RoyalERC1155_init_unchained(_admin, _owner);
+        __SingleApprovableERC1155_init(_uri, _admin);
+        __RoyalERC1155_init_unchained(_owner);
     }
 
-    function __RoyalERC1155_init_unchained(address _admin, address _owner) internal onlyInitializing {
+    function __RoyalERC1155_init_unchained(address _owner) internal onlyInitializing {
         // initialize owner as the "_owner", necessary for OpenSea
         _transferOwnership(_owner);
-
-        // set contract admin
-        admin = _admin;
-        emit NewAdmin(_admin);
     }
 
     /// @dev OpenSea expects NFTs to be "Ownable", that is having an "owner",
     ///      we introduce a fake "owner" here with no authority
     address public owner;
-
-    /// @dev Address of the admin: Can set a new admin among other privileged roles
-    address public admin;
 
     /// @notice Contract level metadata to define collection name, description, and royalty fees.
     ///         see https://docs.opensea.io/docs/contract-level-metadata
@@ -65,23 +58,6 @@ abstract contract RoyalERC1155Upgradeable is ERC2981Upgradeable, SingleApprovabl
         address indexed _receiver,
         uint96 _feeNumerator
     );
-
-    /// @dev Emitted when a new admin is set
-    event NewAdmin(address indexed _admin);
-
-    /// @dev Checks if msg.sender is the admin
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "!admin");
-        _;
-    }
-
-    /// @dev Set new admin role
-    /// @param _admin New admin address
-    function setAdmin(address _admin) external onlyAdmin {
-        require(admin != _admin, "admin == _admin");
-        admin = _admin;
-        emit NewAdmin(_admin);
-    }
 
     /// @notice Checks if the address supplied is an "owner" of the smart contract
     ///      Note: an "owner" doesn't have any authority on the smart contract and is "nominal"
@@ -169,5 +145,5 @@ abstract contract RoyalERC1155Upgradeable is ERC2981Upgradeable, SingleApprovabl
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 }

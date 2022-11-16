@@ -8,6 +8,7 @@
 **/cache
 **/coverage
 **/dist
+**/contracts
 **/node_modules
 **/typechain-types
 
