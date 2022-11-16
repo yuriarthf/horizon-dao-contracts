@@ -25,6 +25,10 @@ import "hardhat-deploy";
 // https://hardhat.org/plugins/hardhat-gas-reporter.html
 import "hardhat-gas-reporter";
 
+// Deploy and manage upgradeable contracts
+// https://www.npmjs.com/package/@openzeppelin/hardhat-upgrades
+import "@openzeppelin/hardhat-upgrades";
+
 // enable Solidity-coverage
 // https://github.com/sc-forks/solidity-coverage
 import "solidity-coverage";

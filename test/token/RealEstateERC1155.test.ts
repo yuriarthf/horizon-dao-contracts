@@ -13,7 +13,7 @@ chai.use(solidity);
 import type { RealEstateERC1155, RealEstateERC1155__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 
 // Get BigNumber
 import { BigNumber } from "@ethersproject/bignumber";
@@ -27,7 +27,7 @@ describe("RealEstateERC1155 Unit Tests", () => {
   let burner: Signer;
   let realEstateToken: RealEstateERC1155;
 
-  const BASE_URI = "https://test.com/";
+  const URI = "https://test.com/";
   const NAME = "Real Estate NFT";
   const SYMBOL = "reNFT";
 
@@ -37,9 +37,9 @@ describe("RealEstateERC1155 Unit Tests", () => {
 
     // deploy RealEstateERC1155 contract
     const realEstateTokenFactory = <RealEstateERC1155__factory>await ethers.getContractFactory("RealEstateERC1155");
-    realEstateToken = await realEstateTokenFactory
-      .connect(deployer)
-      .deploy(BASE_URI, admin.getAddress(), owner.getAddress());
+    realEstateToken = <RealEstateERC1155>(
+      await upgrades.deployProxy(realEstateTokenFactory, [URI, await admin.getAddress(), await owner.getAddress()])
+    );
   });
 
   it("name: should be equal to NAME", async () => {
