@@ -31,6 +31,9 @@ describe("RoyalERC1155 Unit Tests", () => {
   before(async () => {
     // get deployer address
     [deployer, admin, owner] = await ethers.getSigners();
+    console.log("deployer address: ", await deployer.getAddress());
+    console.log("admin address: ", await admin.getAddress());
+    console.log("owner address: ", await owner.getAddress());
 
     // deploy royalToken contract
     const royalTokenFactory = <RoyalERC1155Mock__factory>await ethers.getContractFactory("RoyalERC1155Mock");
@@ -38,10 +41,34 @@ describe("RoyalERC1155 Unit Tests", () => {
   });
 
   it("setAdmin: should emit 'SetAdmin' on success", async () => {
-    const [newAdmin] = await ethers.getSigners();
+    const [newAdmin] = (await ethers.getSigners()).slice(3);
+    console.log("newAdmin address: ", await newAdmin.getAddress());
     // should emit "NewAdmin"
     await expect(royalToken.connect(admin).setAdmin(newAdmin.getAddress()))
       .to.emit(royalToken, "NewAdmin")
-      .withArgs(await admin.getAddress(), await newAdmin.getAddress());
+      .withArgs(await newAdmin.getAddress());
+  });
+
+  it("setAdmin: should revert with 'admin == _admin' message when setting the same admin", async () => {
+    // should revert with "admin == _admin" message
+    await expect(royalToken.connect(admin).setAdmin(admin.getAddress())).to.be.revertedWith("admin == _admin");
+  });
+
+  it("isOwner: should return true if owner", async () => {
+    // should return true
+    expect(await royalToken.isOwner(await owner.getAddress())).to.be.equal(true);
+  });
+
+  it("setDefaultRoyalty: should revert / validate / return ?? ", async () => {
+    const [receiver] = (await ethers.getSigners()).slice(4);
+    const FEE_NUMERATOR = BigNumber.from("10");
+
+    // should revert / validate / return ??
+    // await expect(royalToken.setDefaultRoyalty(uint256(100))).to.be.revertedWith("!admin");
+  });
+
+  it("setTokenRoyalty: should revert / validate / return ?? ", async () => {
+    // should revert / validate / return ??
+    // await expect(royalToken.setTokenRoyalty(uint256(100))).to.be.revertedWith("!admin");
   });
 });
