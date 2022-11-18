@@ -6,15 +6,13 @@ import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 import { BitMaps } from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
 import { IRealEstateERC1155 } from "../interfaces/IRealEstateERC1155.sol";
+import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
 import { IROFinance } from "../libraries/IROFinance.sol";
 
 contract InitialRealEstateOffering is Ownable {
     using Counters for Counters.Counter;
     using BitMaps for BitMaps.BitMap;
     using IROFinance for IROFinance.Finance;
-
-    uint16 public constant FEE_BASIS_POINT = 10000;
-    uint16 public constant SHARE_BASIS_POINT = 10000;
 
     enum Status {
         PENDING,
@@ -41,7 +39,7 @@ contract InitialRealEstateOffering is Ownable {
 
     address public treasury;
     IRealEstateERC1155 public realEstateNft;
-    address public realEstateFunds;
+    IRealEstateFunds public realEstateFunds;
 
     IROFinance.Finance public finance;
 
@@ -53,9 +51,14 @@ contract InitialRealEstateOffering is Ownable {
     /// @dev mapping (iroId => user => commit)
     mapping(uint256 => mapping(address => uint256)) public commits;
 
+    /// @dev mapping (iroId => realEstateId)
+    mapping(uint256 => uint256) public realEstateId;
+
     BitMaps.BitMap private _fundsWithdrawn;
 
     BitMaps.BitMap private _listingOwnerWithdrawn;
+
+    BitMaps.BitMap private _realEstateIdSet;
 
     event TogglePaymentToken(address indexed _by, address indexed _paymentToken, bool indexed allowed);
 
@@ -108,7 +111,7 @@ contract InitialRealEstateOffering is Ownable {
         require(_weth != address(0), "!_weth");
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
-        realEstateFunds = _realEstateFunds;
+        realEstateFunds = IRealEstateFunds(_realEstateFunds);
         finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _basePriceToken);
     }
 
@@ -128,8 +131,8 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(_listingOwnerShare <= SHARE_BASIS_POINT, "!_listingOwnerShare");
-        require(_treasuryFee <= FEE_BASIS_POINT, "!_treasuryFee");
+        require(_listingOwnerShare <= IROFinance.SHARE_DENOMINATOR, "!_listingOwnerShare");
+        require(_treasuryFee <= IROFinance.FEE_DENOMINATOR, "!_treasuryFee");
         require(_softCap <= _hardCap, "_softCap > _hardCap");
 
         uint256 currentId = iroLength();
@@ -159,7 +162,7 @@ contract InitialRealEstateOffering is Ownable {
         uint16 _slippage
     ) external payable {
         require(_amountToPurchase > 0, "_amountToBuy should be greater than zero");
-        require(_slippage <= IROFinance.SLIPPAGE_DIVISOR, "Invalid _slippage");
+        require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
         require(iro.totalFunding + _amountToPurchase <= iro.hardCap, "Hardcap reached");
@@ -183,7 +186,7 @@ contract InitialRealEstateOffering is Ownable {
         require(commitAmount > 0, "Nothing to mint");
         if (status == Status.SUCCESS) {
             uint256 amountToMint = commitAmount / iro.unitPrice;
-            realEstateNft.mint(realEstateNft.nextRealEstateId(), msg.sender, amountToMint);
+            realEstateNft.mint(_retrieveRealEstateId(_iroId), msg.sender, amountToMint);
             emit TokensClaimed(_iroId, msg.sender, _to, amountToMint);
         } else {
             IROFinance.sendErc20(_to, commitAmount, finance.basePriceToken);
@@ -200,30 +203,25 @@ contract InitialRealEstateOffering is Ownable {
         require(iro.listingOwnerShare > 0, "Nothing to claim");
         uint256 totalPurchased = iro.totalFunding / iro.unitPrice;
         uint256 listingOwnerAmount = (totalPurchased * iro.listingOwnerShare) /
-            (SHARE_BASIS_POINT - iro.listingOwnerShare);
-        realEstateNft.mint(realEstateNft.nextRealEstateId(), _to, listingOwnerAmount);
+            (IROFinance.SHARE_DENOMINATOR - iro.listingOwnerShare);
+        realEstateNft.mint(_retrieveRealEstateId(_iroId), _to, listingOwnerAmount);
         _listingOwnerWithdrawn.set(_iroId);
         emit OwnerTokensClaimed(_iroId, msg.sender, _to, listingOwnerAmount);
     }
 
     function withdraw(uint256 _iroId) external {
         IRO memory iro = getIRO(_iroId);
+        require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
         require(!_fundsWithdrawn.get(_iroId), "Already withdrawn");
-        uint256 listingOwnerAmount;
-        uint256 treasuryAmount;
-        if (iro.listingOwnerFee > 0) {
-            listingOwnerAmount = (iro.listingOwnerFee * iro.totalFunding) / FEE_BASIS_POINT;
-            IROFinance.sendErc20(iro.listingOwner, listingOwnerAmount, finance.basePriceToken);
-        }
-        if (iro.treasuryFee > 0) {
-            treasuryAmount = (iro.treasuryFee * iro.totalFunding) / FEE_BASIS_POINT;
-            IROFinance.sendErc20(treasury, treasuryAmount, finance.basePriceToken);
-        }
-        uint256 realEstateFundsAmount = iro.totalFunding - (listingOwnerAmount + treasuryAmount);
-        if (realEstateFundsAmount > 0) {
-            IROFinance.sendErc20(realEstateFunds, realEstateFundsAmount, finance.basePriceToken);
-            // TODO: Need to notify realEstateFunds, so it knows which reNFT owns the funds
-        }
+        (uint256 listingOwnerAmount, uint256 treasuryAmount, uint256 realEstateFundsAmount) = finance.distributeFunds(
+            iro.listingOwner,
+            treasury,
+            realEstateFunds,
+            _retrieveRealEstateId(_iroId),
+            iro.totalFunding,
+            iro.listingOwnerFee,
+            iro.treasuryFee
+        );
         _fundsWithdrawn.set(_iroId);
         emit FundsWithdrawn(_iroId, msg.sender, listingOwnerAmount, treasuryAmount, realEstateFundsAmount);
     }
@@ -233,12 +231,20 @@ contract InitialRealEstateOffering is Ownable {
         return _getStatus(iro);
     }
 
-    function maxSlippage() external pure returns (uint16) {
-        return IROFinance.SLIPPAGE_DIVISOR;
-    }
-
     function iroFinished(uint256 _iroId) external view returns (bool) {
         return now64() >= getIRO(_iroId).end;
+    }
+
+    function slippageDenominator() external pure returns (uint16) {
+        return IROFinance.SLIPPAGE_DENOMINATOR;
+    }
+
+    function feeDenominator() external pure returns (uint16) {
+        return IROFinance.FEE_DENOMINATOR;
+    }
+
+    function shareDenominator() external pure returns (uint16) {
+        return IROFinance.SHARE_DENOMINATOR;
     }
 
     function getIRO(uint256 _iroId) public view returns (IRO memory) {
@@ -252,6 +258,16 @@ contract InitialRealEstateOffering is Ownable {
 
     function iroLength() public view returns (uint256) {
         return _nextAvailableId.current();
+    }
+
+    function _retrieveRealEstateId(uint256 _iroId) internal returns (uint256 _realEstateId) {
+        if (!_realEstateIdSet.get(_iroId)) {
+            _realEstateId = realEstateNft.nextRealEstateId();
+            realEstateId[_iroId] = _realEstateId;
+            _realEstateIdSet.set(_iroId);
+        } else {
+            _realEstateId = realEstateId[_iroId];
+        }
     }
 
     function _getStatus(IRO memory _iro) internal view returns (Status) {

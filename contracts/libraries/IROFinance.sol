@@ -9,14 +9,19 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 import { IUniswapV2Router01 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
+import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
+
 interface IERC20Extended is IERC20 {
     function decimals() external view returns (uint8);
 }
 
 library IROFinance {
     using SafeERC20 for IERC20;
-    uint16 public constant SLIPPAGE_DIVISOR = 10000;
+
     uint8 public constant ETH_DECIMALS = 18;
+    uint16 public constant SLIPPAGE_DENOMINATOR = 10000;
+    uint16 public constant FEE_DENOMINATOR = 10000;
+    uint16 public constant SHARE_DENOMINATOR = 10000;
 
     struct Finance {
         IUniswapV2Router01 swapRouter;
@@ -50,8 +55,8 @@ library IROFinance {
             IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
             uint256 valueInPaymentToken = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
-                SLIPPAGE_DIVISOR +
-                _slippage) / SLIPPAGE_DIVISOR;
+                SLIPPAGE_DENOMINATOR +
+                _slippage) / SLIPPAGE_DENOMINATOR;
             IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInPaymentToken);
             IERC20(_paymentToken).safeApprove(address(_finance.swapRouter), valueInPaymentToken);
             address[] memory path = new address[](2);
@@ -69,8 +74,8 @@ library IROFinance {
             }
         } else {
             uint256 valueInEth = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
-                SLIPPAGE_DIVISOR +
-                _slippage) / SLIPPAGE_DIVISOR;
+                SLIPPAGE_DENOMINATOR +
+                _slippage) / SLIPPAGE_DENOMINATOR;
             require(msg.value >= valueInEth, "Not enough ethers sent");
             address[] memory path = new address[](2);
             path[0] = _finance.weth;
@@ -84,6 +89,31 @@ library IROFinance {
             if (msg.value > amounts[0]) {
                 sendEther(msg.sender, msg.value - amounts[0]);
             }
+        }
+    }
+
+    function distributeFunds(
+        Finance memory _finance,
+        address _listingOwner,
+        address _treasury,
+        IRealEstateFunds _realEstateFunds,
+        uint256 _realEstateId,
+        uint256 _totalFunding,
+        uint256 _listingOwnerFee,
+        uint256 _treasuryFee
+    ) internal returns (uint256 listingOwnerAmount, uint256 treasuryAmount, uint256 realEstateFundsAmount) {
+        if (_listingOwnerFee > 0) {
+            listingOwnerAmount = (_listingOwnerFee * _totalFunding) / FEE_DENOMINATOR;
+            sendErc20(_listingOwner, listingOwnerAmount, _finance.basePriceToken);
+        }
+        if (_treasuryFee > 0) {
+            treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
+            sendErc20(_treasury, treasuryAmount, _finance.basePriceToken);
+        }
+        realEstateFundsAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
+        if (realEstateFundsAmount > 0) {
+            IERC20(_finance.basePriceToken).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
+            _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.basePriceToken);
         }
     }
 
