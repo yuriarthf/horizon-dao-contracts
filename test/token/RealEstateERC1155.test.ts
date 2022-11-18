@@ -20,7 +20,6 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
 
 describe("RealEstateERC1155 Unit Tests", () => {
-  let deployer: Signer;
   let admin: Signer;
   let owner: Signer;
   let minter: Signer;
@@ -33,16 +32,12 @@ describe("RealEstateERC1155 Unit Tests", () => {
 
   before(async () => {
     // get signers
-    [deployer, admin, owner, minter, burner] = await ethers.getSigners();
+    [, admin, owner, minter, burner] = await ethers.getSigners();
 
     // deploy RealEstateERC1155 contract
     const realEstateTokenFactory = <RealEstateERC1155__factory>await ethers.getContractFactory("RealEstateERC1155");
-    realEstateToken = <RealEstateERC1155>await upgrades.deployProxy(
-      realEstateTokenFactory,
-      [URI, await admin.getAddress(), await owner.getAddress()],
-      {
-        deployer,
-      },
+    realEstateToken = <RealEstateERC1155>(
+      await upgrades.deployProxy(realEstateTokenFactory, [URI, await admin.getAddress(), await owner.getAddress()])
     );
   });
 

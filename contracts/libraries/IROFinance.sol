@@ -25,6 +25,19 @@ library IROFinance {
         address basePriceToken;
     }
 
+    function initializeFinance(
+        Finance storage _finance,
+        address _swapRouter,
+        address _priceFeedRegistry,
+        address _weth,
+        address _basePriceToken
+    ) internal {
+        _finance.swapRouter = IUniswapV2Router01(_swapRouter);
+        _finance.priceFeedRegistry = FeedRegistryInterface(_priceFeedRegistry);
+        _finance.weth = _weth;
+        _finance.basePriceToken = _basePriceToken;
+    }
+
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
