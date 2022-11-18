@@ -147,19 +147,19 @@ library IROFinance {
     }
 
     function getETHPriceInBaseTokens(Finance memory _finance) internal view returns (int256) {
-        (, int256 priceInBase, , uint256 updatedAt, ) = _finance.priceFeedRegistry.latestRoundData(
-            Denominations.ETH,
-            _finance.basePriceToken
-        );
+        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
+            .priceFeedRegistry
+            .latestRoundData(Denominations.ETH, _finance.basePriceToken);
+        require(roundId == answeredInRound, "Invalid Answer");
         require(updatedAt > 0, "Round not complete");
         return priceInBase;
     }
 
     function getTokenPriceInBaseTokens(Finance memory _finance, address _paymentToken) internal view returns (int256) {
-        (, int256 priceInBase, , uint256 updatedAt, ) = _finance.priceFeedRegistry.latestRoundData(
-            _paymentToken,
-            _finance.basePriceToken
-        );
+        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
+            .priceFeedRegistry
+            .latestRoundData(_paymentToken, _finance.basePriceToken);
+        require(roundId == answeredInRound, "Invalid Answer");
         require(updatedAt > 0, "Round not complete");
         return priceInBase;
     }
