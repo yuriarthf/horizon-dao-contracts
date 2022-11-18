@@ -9,8 +9,7 @@ import { expect } from "chai";
 // Setup chai plugins
 chai.use(solidity);
 
-// Import BigNumber utility functions
-import { randomUint256, uint256 } from "../utils/bn_utils";
+// Import contract mocks
 import { RoyalERC1155Mock, RoyalERC1155Mock__factory } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
@@ -20,26 +19,30 @@ import { ethers } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
 
-describe.only("RoyalERC1155 Unit Tests", () => {
+describe("RoyalERC1155 Unit Tests", () => {
   let deployer: Signer;
   let admin: Signer;
   let owner: Signer;
   let user: Signer;
   let royalToken: RoyalERC1155Mock;
 
-  const contractURI = "https://test.com/";
+  const CONTRACT_URI = "https://test.com/";
 
   before(async () => {
     // get signers
     [deployer, admin, owner, user] = await ethers.getSigners();
+  });
+
+  beforeEach(async () => {
     // deploy royalToken contract
     const royalTokenFactory = <RoyalERC1155Mock__factory>await ethers.getContractFactory("RoyalERC1155Mock");
-    royalToken = await royalTokenFactory.connect(deployer).deploy(contractURI, admin.getAddress(), owner.getAddress());
+    royalToken = await royalTokenFactory.deploy(CONTRACT_URI, admin.getAddress(), owner.getAddress());
+    await royalToken.deployed();
   });
 
   it("setAdmin: should revert with '!admin' if caller is not the admin", async () => {
     // should revert with "!admin" message
-    await expect(royalToken.setAdmin(user.getAddress())).to.be.revertedWith("!admin");
+    await expect(royalToken.setAdmin(admin.getAddress())).to.be.revertedWith("!admin");
   });
 
   it("setAdmin: should revert with 'admin == _admin' message when setting the same admin", async () => {
@@ -59,8 +62,6 @@ describe.only("RoyalERC1155 Unit Tests", () => {
       [newAdmin] = (await ethers.getSigners()).slice(4);
     });
     it("setAdmin: should emit 'SetAdmin' on success", async () => {
-      // set new admin
-      const [newAdmin] = (await ethers.getSigners()).slice(4);
       // should emit "NewAdmin"
       await expect(royalToken.connect(admin).setAdmin(newAdmin.getAddress()))
         .to.emit(royalToken, "NewAdmin")
@@ -68,11 +69,10 @@ describe.only("RoyalERC1155 Unit Tests", () => {
     });
 
     it("setAdmin: should revert with '!admin' if caller is not the admin", async () => {
+      // set new admin
+      await royalToken.connect(admin).setAdmin(newAdmin.getAddress());
       // should revert with "!admin" message
       await expect(royalToken.connect(admin).setAdmin(admin.getAddress())).to.be.revertedWith("!admin");
-
-      // restore admin
-      await royalToken.connect(newAdmin).setAdmin(await admin.getAddress());
     });
   });
 
@@ -83,6 +83,13 @@ describe.only("RoyalERC1155 Unit Tests", () => {
 
     before(async () => {
       [royaltyReceiver] = (await ethers.getSigners()).slice(5);
+    });
+
+    it("setDefaultRoyalties: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin" message
+      await expect(
+        royalToken.setDefaultRoyalty(await royaltyReceiver.getAddress(), FEE_DENOMINATOR),
+      ).to.be.revertedWith("!admin");
     });
 
     it("setDefaultRoyalty: should revert if default value for setDefaultRoyalt is greater than allowed in contract", async () => {
@@ -120,6 +127,13 @@ describe.only("RoyalERC1155 Unit Tests", () => {
       contractFeeNumerator = await royalToken.feeDenominator();
     });
 
+    it("setTokenRoyalty: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin" message
+      await expect(
+        royalToken.setTokenRoyalty(1, await royaltyReceiver.getAddress(), FEE_DENOMINATOR),
+      ).to.be.revertedWith("!admin");
+    });
+
     it("setTokenRoyalty: should revert if default value for setDefaultRoyalt is greater than allowed in contract", async () => {
       const feeDenominator = BigNumber.from("15000");
       // should revert with "ERC2981: royalty fee will exceed salePrice" message
@@ -142,5 +156,104 @@ describe.only("RoyalERC1155 Unit Tests", () => {
     //     .to.emit(royalToken, "SetTokenRoyalty")
     //     .withArgs(await admin.getAddress(), await royaltyReceiver.getAddress(), FEE_DENOMINATOR);
     // });
+  });
+
+  describe("Set contract URI", () => {
+    const NEW_URI = "https://test2.com/";
+
+    it("setContractURI: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin" message
+      await expect(royalToken.setContractURI(NEW_URI)).to.be.revertedWith("!admin");
+    });
+
+    it("setContractURI: should emit 'SetContractURI' on success", async () => {
+      // should emit "SetContractURI"
+      await expect(royalToken.connect(admin).setContractURI(NEW_URI))
+        .to.emit(royalToken, "ContractURIUpdated")
+        .withArgs(await admin.getAddress(), NEW_URI);
+
+      // validate new contract URI
+      expect(await royalToken.connect(admin).contractURI()).to.be.equal(NEW_URI);
+    });
+  });
+
+  describe("Validate URI", () => {
+    let tokenURI: string;
+    let tokenId: BigNumber;
+
+    const BASE_URI = "https://test2.com/";
+
+    beforeEach(async () => {
+      // set base URI
+      await royalToken.connect(admin).setBaseURI(BASE_URI);
+    });
+
+    it("setBaseURI: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin" message
+      await expect(royalToken.setBaseURI(BASE_URI)).to.be.revertedWith("!admin");
+    });
+
+    it("setURI: should revert with '!admin' if caller is not the admin", async () => {
+      tokenURI = "nft_1";
+      tokenId = BigNumber.from("1");
+
+      // should revert with "!admin" message
+      await expect(royalToken.setURI(tokenId, tokenURI)).to.be.revertedWith("!admin");
+    });
+
+    it("setURI: should return encodePacked(_baseURI, tokenURI) ", async () => {
+      tokenURI = "nft_1";
+      tokenId = BigNumber.from("1");
+
+      // should set token URI
+      await royalToken.connect(admin).setURI(tokenId, tokenURI);
+      // validate token URI
+      expect(await royalToken.connect(admin).uri(tokenId)).to.be.equal(BASE_URI + tokenURI);
+    });
+
+    it("setURI: should return super.uri(tokenId) ERC1155._uri ", async () => {
+      tokenURI = "";
+      tokenId = BigNumber.from("1");
+
+      // should set token URI
+      await royalToken.connect(admin).setURI(tokenId, tokenURI);
+      // validate token URI
+      expect(await royalToken.connect(admin).uri(tokenId)).to.be.equal(CONTRACT_URI);
+    });
+  });
+
+  it("supportsInterface: Supports IERC165, IERC2981 and IERC1155", async () => {
+    // Interface IDs
+    const Ierc165InterfaceId = "0x01ffc9a7";
+    const Ierc2981InterfaceId = "0x2a55205a";
+    const Ierc1155InterfaceId = "0xd9b67a26";
+
+    // Check if interfaces are supported
+    expect(await royalToken.supportsInterface(Ierc165InterfaceId)).to.be.true;
+    expect(await royalToken.supportsInterface(Ierc2981InterfaceId)).to.be.true;
+    expect(await royalToken.supportsInterface(Ierc1155InterfaceId)).to.be.true;
+  });
+
+  describe("Transfer ownership", () => {
+    let newOwner: Signer;
+
+    before(async () => {
+      [newOwner] = (await ethers.getSigners()).slice(6);
+    });
+
+    it("transferOwnership: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin" message
+      await expect(royalToken.transferOwnership(await user.getAddress())).to.be.revertedWith("!admin");
+    });
+
+    it("transferOwnership: should emit 'OwnershipTransferred' on success", async () => {
+      // should emit "OwnershipTransferred"
+      await expect(royalToken.connect(admin).transferOwnership(await newOwner.getAddress()))
+        .to.emit(royalToken, "OwnershipTransferred")
+        .withArgs(await owner.getAddress(), await newOwner.getAddress());
+
+      // validate new owner
+      expect(await royalToken.connect(admin).owner()).to.be.equal(await newOwner.getAddress());
+    });
   });
 });
