@@ -67,6 +67,9 @@ contract InitialRealEstateOffering is Ownable {
     /// @dev mapping (iroId => realEstateId)
     mapping(uint256 => uint256) public realEstateId;
 
+    /// @dev mapping (currencyAddress => whitelited)
+    mapping(address => bool) public whitelistedCurrency;
+
     /// @dev Points out whether funds have been withdrawn from IRO
     BitMaps.BitMap private _fundsWithdrawn;
 
@@ -98,6 +101,9 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _amountInBase,
         uint256 _purchasedTokens
     );
+
+    /// @dev Emitted when `whitelistCurrency` is executed
+    event WhitelistCurrency(address indexed _by, address indexed _currency, bool indexed _whitelist);
 
     /// @dev Emitted when tokens are claimed by investors
     event TokensClaimed(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _amount);
@@ -194,6 +200,7 @@ contract InitialRealEstateOffering is Ownable {
             totalFunding: 0
         });
         _nextAvailableId.increment();
+        whitelistedCurrency[address(0)] = true;
 
         emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
@@ -211,6 +218,7 @@ contract InitialRealEstateOffering is Ownable {
         uint16 _slippage
     ) external payable {
         require(_amountToPurchase > 0, "_amountToBuy should be greater than zero");
+        require(_paymentToken == finance.basePriceToken || whitelistedCurrency[_paymentToken], "Currency not allowed");
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
@@ -280,6 +288,15 @@ contract InitialRealEstateOffering is Ownable {
         );
         _fundsWithdrawn.set(_iroId);
         emit FundsWithdrawn(_iroId, msg.sender, listingOwnerAmount, treasuryAmount, realEstateFundsAmount);
+    }
+
+    /// @dev Whitelist payment currencies
+    /// @param _currency Currency ERC20 address
+    /// @param _whitelist Whether to whitelist
+    function whitelistCurrency(address _currency, bool _whitelist) external onlyOwner {
+        require(_currency != address(0), "!invalid address");
+        whitelistedCurrency[_currency] = _whitelist;
+        emit WhitelistCurrency(msg.sender, _currency, _whitelist);
     }
 
     /// @notice Get IRO status
