@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { IERC20Extended } from "../interfaces/IERC20Extended.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
@@ -11,18 +11,27 @@ import { IUniswapV2Router01 } from "@uniswap/v2-periphery/contracts/interfaces/I
 
 import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
 
-interface IERC20Extended is IERC20 {
-    function decimals() external view returns (uint8);
-}
-
+/// @title IRO Finance
+/// @author Horizon DAO (Yuri Fernandes)
+/// @dev Library contain functions to perform financial computations
+///     for the InitialRealEstateOffering contract
 library IROFinance {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Extended;
 
+    /// @dev Number of decimals of ETH
     uint8 public constant ETH_DECIMALS = 18;
+
+    /// @dev The denominator and maximum value for slippage
     uint16 public constant SLIPPAGE_DENOMINATOR = 10000;
+
+    /// @dev The denominator and maximum value for fee
     uint16 public constant FEE_DENOMINATOR = 10000;
+
+    /// @dev The denominator and maximum value for share
     uint16 public constant SHARE_DENOMINATOR = 10000;
 
+    /// @dev Structure that holds all financial types
+    ///     used to swap tokens and consult relative prices
     struct Finance {
         IUniswapV2Router01 swapRouter;
         FeedRegistryInterface priceFeedRegistry;
@@ -30,6 +39,12 @@ library IROFinance {
         address basePriceToken;
     }
 
+    /// @dev Initialize the Finance structure
+    /// @param _finance Finance structure
+    /// @param _swapRouter Address of the Uniswap/Sushiswap router used to swap tokens
+    /// @param _priceFeedRegistry Address for Chainlink Price Feed Registry
+    /// @param _weth WETH contract address
+    /// @param _basePriceToken Address of the token used as the base precification currency
     function initializeFinance(
         Finance storage _finance,
         address _swapRouter,
@@ -43,6 +58,12 @@ library IROFinance {
         _finance.basePriceToken = _basePriceToken;
     }
 
+    /// @dev Process commit payment
+    /// @param _finance Finance structure
+    /// @param _unitPrice Unit price of the token
+    /// @param _amountToPurchase Amount of tokens to purchase
+    /// @param _paymentToken The address of the token being used for payment
+    /// @param _slippage Swap slippage in basis points
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
@@ -52,13 +73,13 @@ library IROFinance {
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _finance.basePriceToken) {
-            IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
+            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
             uint256 valueInPaymentToken = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
                 SLIPPAGE_DENOMINATOR +
                 _slippage) / SLIPPAGE_DENOMINATOR;
-            IERC20(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInPaymentToken);
-            IERC20(_paymentToken).safeApprove(address(_finance.swapRouter), valueInPaymentToken);
+            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInPaymentToken);
+            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueInPaymentToken);
             address[] memory path = new address[](2);
             path[0] = _paymentToken;
             path[1] = _finance.basePriceToken;
@@ -92,6 +113,15 @@ library IROFinance {
         }
     }
 
+    /// @dev Distribute funds during IRO withdrawal
+    /// @param _finance Finance structure
+    /// @param _listingOwner The listing owner of the IRO
+    /// @param _treasury Treasury contract address
+    /// @param _realEstateFunds RealEstateFunds contract address
+    /// @param _realEstateId ID of the RealEstate token to receive the funds
+    /// @param _totalFunding Total funds from the IRO
+    /// @param _listingOwnerFee Fee requested by the listing owner
+    /// @param _treasuryFee Treasury fee
     function distributeFunds(
         Finance memory _finance,
         address _listingOwner,
@@ -112,7 +142,7 @@ library IROFinance {
         }
         realEstateFundsAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
         if (realEstateFundsAmount > 0) {
-            IERC20(_finance.basePriceToken).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
+            IERC20Extended(_finance.basePriceToken).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
             _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.basePriceToken);
         }
     }
@@ -125,10 +155,19 @@ library IROFinance {
         require(success, "Failed sending ethers");
     }
 
+    /// @dev Utility function to send an amount of ERC20 tokens to a given address
+    /// @param _to Address to send tokens
+    /// @param _amount Amount of tokens to send
+    /// @param _token Address of the token to send
     function sendErc20(address _to, uint256 _amount, address _token) internal {
-        IERC20(_token).safeTransfer(_to, _amount);
+        IERC20Extended(_token).safeTransfer(_to, _amount);
     }
 
+    /// @dev Convert a base currency amount to a given payment token
+    /// @param _finance Finance structure
+    /// @param _valueInBase Value in base tokens
+    /// @param _paymentToken Payment token address
+    /// @return Price in payment tokens
     function convertBaseToPaymentToken(
         Finance memory _finance,
         uint256 _valueInBase,
@@ -146,6 +185,9 @@ library IROFinance {
         return (_valueInBase * 10 ** uint256(paymentTokenDecimals)) / paymentTokenPriceInBase;
     }
 
+    /// @dev Get ETH price in base tokens
+    /// @param _finance Finance structure
+    /// @return Price in base tokens
     function getETHPriceInBaseTokens(Finance memory _finance) internal view returns (int256) {
         (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
             .priceFeedRegistry
@@ -155,6 +197,9 @@ library IROFinance {
         return priceInBase;
     }
 
+    /// @dev Get token price in base tokens
+    /// @param _finance Finance structure
+    /// @return Price in base tokens
     function getTokenPriceInBaseTokens(Finance memory _finance, address _paymentToken) internal view returns (int256) {
         (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
             .priceFeedRegistry
@@ -164,11 +209,18 @@ library IROFinance {
         return priceInBase;
     }
 
+    /// @dev Get the number of decimals of a token
+    /// @param _token Token address
+    /// @return Number of decimals
     function _getTokenDecimals(address _token) private view returns (uint8) {
         if (_token == address(0)) return ETH_DECIMALS;
         return IERC20Extended(_token).decimals();
     }
 
+    /// @dev Get the number of decimals in the price of `_paymentToken` in base
+    /// @param _finance Finance structure
+    /// @param _paymentToken Payment token address
+    /// @return Price decimals
     function _getPriceDecimals(Finance memory _finance, address _paymentToken) private view returns (uint8) {
         return _finance.priceFeedRegistry.decimals(_paymentToken, _finance.basePriceToken);
     }
