@@ -9,6 +9,10 @@ import { IRealEstateERC1155 } from "../interfaces/IRealEstateERC1155.sol";
 import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
 import { IROFinance } from "../libraries/IROFinance.sol";
 
+/// @title Initial Real Estate Offering (IRO)
+/// @author Horizon DAO (Yuri Fernandes)
+/// @notice Used to run IROs, mint tokens to RealEstateNFT
+///     and distribute funds
 contract InitialRealEstateOffering is Ownable {
     using Counters for Counters.Counter;
     using BitMaps for BitMaps.BitMap;
@@ -55,7 +59,7 @@ contract InitialRealEstateOffering is Ownable {
     Counters.Counter private _nextAvailableId;
 
     /// @dev mapping (iroId => iro)
-    mapping(uint256 => IRO) public iros;
+    mapping(uint256 => IRO) private _iros;
 
     /// @dev mapping (iroId => user => commit)
     mapping(uint256 => mapping(address => uint256)) public commits;
@@ -142,11 +146,23 @@ contract InitialRealEstateOffering is Ownable {
         finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _basePriceToken);
     }
 
+    /// @dev Set a new base price token
+    /// @param _basePriceToken Base price token address (ERC20)
     function setBasePriceToken(address _basePriceToken) external onlyOwner {
         require(_basePriceToken != address(0), "!_basePriceToken");
         finance.basePriceToken = _basePriceToken;
     }
 
+    /// @dev Create new IRO
+    /// @param _listingOwner Listing owner address
+    /// @param _listingOwnerFee Listing owner fee in basis points
+    /// @param _listingOwnerShare Listing owner share of IRO tokens in basis points
+    /// @param _treasuryFee Treasury fee percentage in basis points
+    /// @param _duration Duration of the IRO in seconds
+    /// @param _softCap Minimum fundraising in base price token
+    /// @param _hardCap Maximum fundraising in base price token
+    /// @param _unitPrice Price per unit of IRO token in base price token
+    /// @param _startOffset Time before IRO begins
     function createIRO(
         address _listingOwner,
         uint16 _listingOwnerFee,
@@ -165,7 +181,7 @@ contract InitialRealEstateOffering is Ownable {
         uint256 currentId = iroLength();
         uint64 start_ = now64() + _startOffset;
         uint64 end_ = start_ + _duration;
-        iros[currentId] = IRO({
+        _iros[currentId] = IRO({
             listingOwner: _listingOwner,
             start: start_,
             treasuryFee: _treasuryFee,
@@ -182,6 +198,12 @@ contract InitialRealEstateOffering is Ownable {
         emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
 
+    /// @notice Commit to an IRO
+    /// @param _iroId ID of the IRO
+    /// @param _paymentToken Payment token address
+    /// @param _amountToPurchase Amount of IRO tokens to purchase
+    /// @param _slippage Slippage in basis points when swapping token by
+    ///     base payment token (not applicable when paying directly with it)
     function commit(
         uint256 _iroId,
         address _paymentToken,
@@ -200,13 +222,17 @@ contract InitialRealEstateOffering is Ownable {
         uint256 valueInBase = finance.processPayment(iro.unitPrice, _amountToPurchase, _paymentToken, _slippage);
 
         commits[_iroId][msg.sender] += _amountToPurchase;
-        iros[_iroId].totalFunding += valueInBase;
+        _iros[_iroId].totalFunding += valueInBase;
 
         emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, _amountToPurchase);
     }
 
+    /// @notice Claim purchased tokens when IRO successful or
+    ///     get back commit amount in base payment tokens if IRO failed
+    /// @param _iroId ID of the IRO
+    /// @param _to Address to send the claimed tokens
     function claim(uint256 _iroId, address _to) external {
-        IRO memory iro = iros[_iroId];
+        IRO memory iro = _iros[_iroId];
         Status status = _getStatus(iro);
         require(status > Status.ONGOING, "IRO not finished");
         uint256 commitAmount = commits[_iroId][msg.sender];
@@ -222,6 +248,9 @@ contract InitialRealEstateOffering is Ownable {
         }
     }
 
+    /// @notice Claim listing owner tokens
+    /// @param _iroId ID of the IRO
+    /// @param _to Address to send the tokens
     function listingOwnerClaim(uint256 _iroId, address _to) external {
         IRO memory iro = getIRO(_iroId);
         require(msg.sender == iro.listingOwner, "!allowed");
@@ -234,6 +263,8 @@ contract InitialRealEstateOffering is Ownable {
         emit OwnerTokensClaimed(_iroId, msg.sender, _to, listingOwnerAmount);
     }
 
+    /// @notice Withdraw and distribute funds from successful IROs
+    /// @param _iroId ID of the IRO
     function withdraw(uint256 _iroId) external {
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
@@ -251,40 +282,48 @@ contract InitialRealEstateOffering is Ownable {
         emit FundsWithdrawn(_iroId, msg.sender, listingOwnerAmount, treasuryAmount, realEstateFundsAmount);
     }
 
+    /// @notice Get IRO status
+    /// @param _iroId ID of the IRO
     function getStatus(uint256 _iroId) external view returns (Status) {
-        IRO memory iro = iros[_iroId];
+        IRO memory iro = _iros[_iroId];
         return _getStatus(iro);
     }
 
-    function iroFinished(uint256 _iroId) external view returns (bool) {
-        return now64() >= getIRO(_iroId).end;
-    }
-
+    /// @notice Check slippage denominator
     function slippageDenominator() external pure returns (uint16) {
         return IROFinance.SLIPPAGE_DENOMINATOR;
     }
 
+    /// @notice Check fee denominator
     function feeDenominator() external pure returns (uint16) {
         return IROFinance.FEE_DENOMINATOR;
     }
 
+    /// @notice Check share denominator
     function shareDenominator() external pure returns (uint16) {
         return IROFinance.SHARE_DENOMINATOR;
     }
 
+    /// @notice Get IRO
+    /// @param _iroId ID of the IRO
     function getIRO(uint256 _iroId) public view returns (IRO memory) {
         require(_iroId < iroLength(), "_iroId out-of-bounds");
-        return iros[_iroId];
+        return _iros[_iroId];
     }
 
+    /// @notice Get current time (uint64)
     function now64() public view returns (uint64) {
         return uint64(block.timestamp);
     }
 
+    /// @notice Get total amount of IROs
     function iroLength() public view returns (uint256) {
         return _nextAvailableId.current();
     }
 
+    /// @dev Retrieve the realEstateId associated with a given IRO
+    /// @dev If none is assigned, assigns a new one
+    /// @param _iroId ID of the IRO
     function _retrieveRealEstateId(uint256 _iroId) internal returns (uint256 _realEstateId) {
         if (!_realEstateIdSet.get(_iroId)) {
             _realEstateId = realEstateNft.nextRealEstateId();
@@ -295,6 +334,8 @@ contract InitialRealEstateOffering is Ownable {
         }
     }
 
+    /// @dev Get status of an IRO
+    /// @param _iro IRO structure
     function _getStatus(IRO memory _iro) internal view returns (Status) {
         if (now64() <= _iro.start) return Status.PENDING;
         if (now64() < _iro.end) {
