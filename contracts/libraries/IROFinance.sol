@@ -113,6 +113,20 @@ library IROFinance {
         }
     }
 
+    /// @dev Convert token share to amount
+    /// @param _totalFunding Total IRO funding
+    /// @param _unitPrice IRO token unit price
+    /// @param _share Token share
+    /// @return amount Amount of tokens
+    function shareToAmount(
+        uint256 _totalFunding,
+        uint256 _unitPrice,
+        uint16 _share
+    ) internal pure returns (uint256 amount) {
+        uint256 totalPurchased = _totalFunding / _unitPrice;
+        amount = (totalPurchased * _share) / (IROFinance.SHARE_DENOMINATOR - _share);
+    }
+
     /// @dev Distribute funds during IRO withdrawal
     /// @param _finance Finance structure
     /// @param _listingOwner The listing owner of the IRO

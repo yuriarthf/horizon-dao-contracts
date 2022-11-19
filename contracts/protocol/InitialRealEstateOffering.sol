@@ -14,6 +14,7 @@ contract InitialRealEstateOffering is Ownable {
     using BitMaps for BitMaps.BitMap;
     using IROFinance for IROFinance.Finance;
 
+    /// @dev IRO status enum
     enum Status {
         PENDING,
         ONGOING,
@@ -37,12 +38,20 @@ contract InitialRealEstateOffering is Ownable {
         uint256 totalFunding;
     }
 
+    /// @notice Treasury contract address
     address public treasury;
+
+    /// @notice RealEstateNFT contract address
     IRealEstateERC1155 public realEstateNft;
+
+    /// @notice RealEstateFunds contract address
     IRealEstateFunds public realEstateFunds;
 
+    /// @notice Structure composed by the addresses
+    ///     of contracts responsible for making financial operations
     IROFinance.Finance public finance;
 
+    /// @dev Next available IRO ID
     Counters.Counter private _nextAvailableId;
 
     /// @dev mapping (iroId => iro)
@@ -54,14 +63,19 @@ contract InitialRealEstateOffering is Ownable {
     /// @dev mapping (iroId => realEstateId)
     mapping(uint256 => uint256) public realEstateId;
 
+    /// @dev Points out whether funds have been withdrawn from IRO
     BitMaps.BitMap private _fundsWithdrawn;
 
-    BitMaps.BitMap private _listingOwnerWithdrawn;
+    /// @dev Points out whether the listingOwner has claimed it's share
+    BitMaps.BitMap private _listingOwnerClaimed;
 
+    /// @dev Whether an ID has already been set in the RealEstateNFT contract for the IRO
     BitMaps.BitMap private _realEstateIdSet;
 
+    /// @dev Emitted when a new payment token is added
     event TogglePaymentToken(address indexed _by, address indexed _paymentToken, bool indexed allowed);
 
+    /// @dev Emitted when a new IRO is created
     event CreateIRO(
         uint256 indexed _id,
         address indexed _listingOwner,
@@ -72,6 +86,7 @@ contract InitialRealEstateOffering is Ownable {
         uint64 _end
     );
 
+    /// @dev Emitted when a new Commit is made to an IRO
     event Commit(
         uint256 indexed _iroId,
         address indexed _user,
@@ -80,12 +95,16 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _purchasedTokens
     );
 
+    /// @dev Emitted when tokens are claimed by investors
     event TokensClaimed(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _amount);
 
+    /// @dev Emitted when the listing owner claims it's shares of the tokens
     event OwnerTokensClaimed(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _amount);
 
+    /// @dev Emitted when an investors withdraw it's funds after an IRO fails
     event CashBack(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _commitAmount);
 
+    /// @dev Emitted when funds from an IRO are withdrawn
     event FundsWithdrawn(
         uint256 indexed _iroId,
         address indexed _by,
@@ -94,6 +113,14 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _realEstateFundsAmount
     );
 
+    /// @dev Initialize IRO contract
+    /// @param _realEstateNft RealEstateNFT contract address
+    /// @param _treasury Treasury contract address
+    /// @param _realEstateFunds RealEstateFunds contract address
+    /// @param _basePriceToken Base token used to precify the IRO tokens
+    /// @param _priceFeedRegistry Chainlink Price Feed Registry address
+    /// @param _swapRouter Uniswap or Sushiswap swap router
+    /// @param _weth WETH contract address
     constructor(
         address _realEstateNft,
         address _treasury,
@@ -198,14 +225,12 @@ contract InitialRealEstateOffering is Ownable {
     function listingOwnerClaim(uint256 _iroId, address _to) external {
         IRO memory iro = getIRO(_iroId);
         require(msg.sender == iro.listingOwner, "!allowed");
-        require(!_listingOwnerWithdrawn.get(_iroId), "Already claimed");
+        require(!_listingOwnerClaimed.get(_iroId), "Already claimed");
         require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
         require(iro.listingOwnerShare > 0, "Nothing to claim");
-        uint256 totalPurchased = iro.totalFunding / iro.unitPrice;
-        uint256 listingOwnerAmount = (totalPurchased * iro.listingOwnerShare) /
-            (IROFinance.SHARE_DENOMINATOR - iro.listingOwnerShare);
+        uint256 listingOwnerAmount = IROFinance.shareToAmount(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
         realEstateNft.mint(_retrieveRealEstateId(_iroId), _to, listingOwnerAmount);
-        _listingOwnerWithdrawn.set(_iroId);
+        _listingOwnerClaimed.set(_iroId);
         emit OwnerTokensClaimed(_iroId, msg.sender, _to, listingOwnerAmount);
     }
 
