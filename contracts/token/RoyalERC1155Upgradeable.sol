@@ -120,13 +120,8 @@ abstract contract RoyalERC1155Upgradeable is ERC2981Upgradeable, SingleApprovabl
     }
 
     /// @dev See {IERC165-supportsInterface}.
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(ERC1155Upgradeable, ERC2981Upgradeable) returns (bool) {
-        return
-            interfaceId == type(IERC2981Upgradeable).interfaceId ||
-            ERC1155Upgradeable.supportsInterface(interfaceId) ||
-            ERC2981Upgradeable.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, ERC2981) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || ERC1155.supportsInterface(interfaceId);
     }
 
     /// @dev Set the smart contract owner
