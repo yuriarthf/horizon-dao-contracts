@@ -180,9 +180,9 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(_listingOwnerShare <= IROFinance.SHARE_DENOMINATOR, "!_listingOwnerShare");
-        require(_treasuryFee <= IROFinance.FEE_DENOMINATOR, "!_treasuryFee");
-        require(_softCap <= _hardCap, "_softCap > _hardCap");
+        require(_listingOwnerShare <= IROFinance.SHARE_DENOMINATOR, "Invalid owner share");
+        require(_treasuryFee <= IROFinance.FEE_DENOMINATOR, "Invalid treasury fee");
+        require((_hardCap - _softCap) % _unitPrice == 0, "Caps should be multiples of unitPrice");
 
         uint256 currentId = iroLength();
         uint64 start_ = now64() + _startOffset;
@@ -222,7 +222,7 @@ contract InitialRealEstateOffering is Ownable {
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
-        require(iro.totalFunding + _amountToPurchase <= iro.hardCap, "Hardcap reached");
+        require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.hardCap, "Hardcap reached");
         if (_paymentToken != address(0) && msg.value > 0) {
             IROFinance.sendEther(msg.sender, msg.value);
         }
@@ -240,7 +240,7 @@ contract InitialRealEstateOffering is Ownable {
     /// @param _iroId ID of the IRO
     /// @param _to Address to send the claimed tokens
     function claim(uint256 _iroId, address _to) external {
-        IRO memory iro = _iros[_iroId];
+        IRO memory iro = getIRO(_iroId);
         Status status = _getStatus(iro);
         require(status > Status.ONGOING, "IRO not finished");
         uint256 commitAmount = commits[_iroId][msg.sender];
@@ -297,6 +297,30 @@ contract InitialRealEstateOffering is Ownable {
         require(_currency != address(0), "!invalid address");
         whitelistedCurrency[_currency] = _whitelist;
         emit WhitelistCurrency(msg.sender, _currency, _whitelist);
+    }
+
+    /// @notice Get the expected price of an IRO purchase (without slippage)
+    /// @param _iroId ID of the IRO
+    /// @param _paymentToken Payment token address
+    /// @param _amountToPurchase Amount of IRO tokens to purchase
+    function expectedPrice(
+        uint256 _iroId,
+        address _paymentToken,
+        uint256 _amountToPurchase
+    ) external view returns (uint256) {
+        IRO memory iro = getIRO(_iroId);
+        uint256 valueInBase = _amountToPurchase * iro.unitPrice;
+        if (_paymentToken == finance.basePriceToken) {
+            return valueInBase;
+        }
+        return finance.convertBaseToPaymentToken(valueInBase, _paymentToken);
+    }
+
+    /// @notice Get the amount of remaining IRO tokens
+    /// @param _iroId ID of the IRO
+    function remainingTokens(uint256 _iroId) external view returns (uint256) {
+        IRO memory iro = getIRO(_iroId);
+        return (iro.hardCap - iro.totalFunding) / iro.unitPrice;
     }
 
     /// @notice Get IRO status
