@@ -61,56 +61,91 @@ library IROFinance {
     /// @dev Process commit payment
     /// @param _finance Finance structure
     /// @param _unitPrice Unit price of the token
-    /// @param _amountToPurchase Amount of tokens to purchase
     /// @param _paymentToken The address of the token being used for payment
+    /// @param _amountToPay Expected amount to pay (without slippage)
+    /// @param _amountToPurchase Amount of tokens to purchase
     /// @param _slippage Swap slippage in basis points
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
-        uint256 _amountToPurchase,
         address _paymentToken,
+        uint256 _amountToPay,
+        uint256 _amountToPurchase,
         uint16 _slippage
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _finance.basePriceToken) {
+            require(valueInBase == _amountToPay, "Invalid amount");
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
-            uint256 valueInPaymentToken = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
-                SLIPPAGE_DENOMINATOR +
-                _slippage) / SLIPPAGE_DENOMINATOR;
-            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInPaymentToken);
-            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueInPaymentToken);
+            uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
+            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueWithSlippage);
+            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
             address[] memory path = new address[](2);
             path[0] = _paymentToken;
             path[1] = _finance.basePriceToken;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
                 valueInBase,
-                valueInPaymentToken,
+                valueWithSlippage,
                 path,
                 address(this),
                 block.timestamp
             );
-            if (amounts[0] < valueInPaymentToken) {
-                sendErc20(msg.sender, valueInPaymentToken - amounts[0], _paymentToken);
+            if (amounts[0] < valueWithSlippage) {
+                sendErc20(msg.sender, valueWithSlippage - amounts[0], _paymentToken);
             }
         } else {
-            uint256 valueInEth = (convertBaseToPaymentToken(_finance, valueInBase, _paymentToken) *
-                SLIPPAGE_DENOMINATOR +
-                _slippage) / SLIPPAGE_DENOMINATOR;
-            require(msg.value >= valueInEth, "Not enough ethers sent");
+            uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
+            require(msg.value >= valueWithSlippage, "Not enough ethers sent");
             address[] memory path = new address[](2);
             path[0] = _finance.weth;
             path[1] = _finance.basePriceToken;
-            uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueInEth }(
+            uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
                 valueInBase,
                 path,
                 address(this),
                 block.timestamp
             );
-            if (msg.value > amounts[0]) {
+            if (amounts[0] < msg.value) {
                 sendEther(msg.sender, msg.value - amounts[0]);
             }
         }
+    }
+
+    /// @notice Get the expected price of an IRO purchase (without slippage)
+    /// @param _finance Finance structure
+    /// @param _unitPrice Unit price of the token
+    /// @param _paymentToken Payment token address
+    /// @param _amountToPurchase Amount of IRO tokens to purchase
+    function expectedPrice(
+        Finance memory _finance,
+        uint256 _unitPrice,
+        address _paymentToken,
+        uint256 _amountToPurchase
+    ) internal view returns (uint256) {
+        uint256 valueInBase = _amountToPurchase * _unitPrice;
+        if (_paymentToken == _finance.basePriceToken) {
+            return valueInBase;
+        }
+        return convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
+    }
+
+    /// @notice Get the expected price of an IRO purchase (without slippage)
+    /// @param _finance Finance structure
+    /// @param _unitPrice Unit price of the token
+    /// @param _paymentToken Payment token address
+    /// @param _amountToPurchase Amount of IRO tokens to purchase
+    /// @param _slippage Swap slippage in basis points
+    function priceWithSlippage(
+        Finance memory _finance,
+        uint256 _unitPrice,
+        address _paymentToken,
+        uint256 _amountToPurchase,
+        uint16 _slippage
+    ) internal view returns (uint256) {
+        uint256 expectedPrice_ = expectedPrice(_finance, _unitPrice, _paymentToken, _amountToPurchase);
+        if (_paymentToken == _finance.basePriceToken) return expectedPrice_;
+        return (expectedPrice_ * (SLIPPAGE_DENOMINATOR + _slippage)) / SLIPPAGE_DENOMINATOR;
     }
 
     /// @dev Convert token share to amount

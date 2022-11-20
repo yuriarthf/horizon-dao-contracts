@@ -208,16 +208,18 @@ contract InitialRealEstateOffering is Ownable {
     /// @notice Commit to an IRO
     /// @param _iroId ID of the IRO
     /// @param _paymentToken Payment token address
+    /// @param _amountToPay Expected amount to pay (without slippage)
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _slippage Slippage in basis points when swapping token by
     ///     base payment token (not applicable when paying directly with it)
     function commit(
         uint256 _iroId,
         address _paymentToken,
+        uint256 _amountToPay,
         uint256 _amountToPurchase,
         uint16 _slippage
     ) external payable {
-        require(_amountToPurchase > 0, "_amountToBuy should be greater than zero");
+        require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         require(_paymentToken == finance.basePriceToken || whitelistedCurrency[_paymentToken], "Currency not allowed");
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
@@ -227,7 +229,13 @@ contract InitialRealEstateOffering is Ownable {
             IROFinance.sendEther(msg.sender, msg.value);
         }
 
-        uint256 valueInBase = finance.processPayment(iro.unitPrice, _amountToPurchase, _paymentToken, _slippage);
+        uint256 valueInBase = finance.processPayment(
+            iro.unitPrice,
+            _paymentToken,
+            _amountToPay,
+            _amountToPurchase,
+            _slippage
+        );
 
         commits[_iroId][msg.sender] += _amountToPurchase;
         _iros[_iroId].totalFunding += valueInBase;
@@ -309,11 +317,22 @@ contract InitialRealEstateOffering is Ownable {
         uint256 _amountToPurchase
     ) external view returns (uint256) {
         IRO memory iro = getIRO(_iroId);
-        uint256 valueInBase = _amountToPurchase * iro.unitPrice;
-        if (_paymentToken == finance.basePriceToken) {
-            return valueInBase;
-        }
-        return finance.convertBaseToPaymentToken(valueInBase, _paymentToken);
+        return finance.expectedPrice(iro.unitPrice, _paymentToken, _amountToPurchase);
+    }
+
+    /// @notice Get the price with slippage
+    /// @param _iroId ID of the IRO
+    /// @param _paymentToken Payment token address
+    /// @param _amountToPurchase Amount of IRO tokens to purchase
+    /// @param _slippage Swap slippage in basis points
+    function priceWithSlippage(
+        uint256 _iroId,
+        address _paymentToken,
+        uint256 _amountToPurchase,
+        uint16 _slippage
+    ) external view returns (uint256) {
+        IRO memory iro = getIRO(_iroId);
+        return finance.priceWithSlippage(iro.unitPrice, _paymentToken, _amountToPurchase, _slippage);
     }
 
     /// @notice Get the amount of remaining IRO tokens
