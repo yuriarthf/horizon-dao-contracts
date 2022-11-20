@@ -118,44 +118,53 @@ describe("RoyalERC1155 Unit Tests", () => {
 
   describe("Set royalties info for a specific token ID", () => {
     let royaltyReceiver: Signer;
-    let contractFeeNumerator: BigNumber;
 
-    const FEE_DENOMINATOR = BigNumber.from("8000");
+    const ROYALTY_FRACTION = BigNumber.from("8000");
 
     before(async () => {
       [royaltyReceiver] = (await ethers.getSigners()).slice(6);
-      contractFeeNumerator = await royalToken.feeDenominator();
     });
 
     it("setTokenRoyalty: should revert with '!admin' if caller is not the admin", async () => {
       // should revert with "!admin" message
       await expect(
-        royalToken.setTokenRoyalty(1, await royaltyReceiver.getAddress(), FEE_DENOMINATOR),
+        royalToken.setTokenRoyalty(1, await royaltyReceiver.getAddress(), ROYALTY_FRACTION),
       ).to.be.revertedWith("!admin");
     });
 
     it("setTokenRoyalty: should revert if default value for setDefaultRoyalt is greater than allowed in contract", async () => {
-      const feeDenominator = BigNumber.from("15000");
+      const royaltyFraction = BigNumber.from("15000");
       // should revert with "ERC2981: royalty fee will exceed salePrice" message
       await expect(
-        royalToken.connect(admin).setDefaultRoyalty(royaltyReceiver.getAddress(), feeDenominator),
+        royalToken.connect(admin).setDefaultRoyalty(royaltyReceiver.getAddress(), royaltyFraction),
       ).to.be.revertedWith("ERC2981: royalty fee will exceed salePrice");
     });
 
     it("setTokenRoyalty: should revert if invalid address", async () => {
       const invalidAddress = "0x0000000000000000000000000000000000000000";
       // should revert with "ERC2981: invalid receiver" message
-      await expect(royalToken.connect(admin).setDefaultRoyalty(invalidAddress, FEE_DENOMINATOR)).to.be.revertedWith(
+      await expect(royalToken.connect(admin).setDefaultRoyalty(invalidAddress, ROYALTY_FRACTION)).to.be.revertedWith(
         "ERC2981: invalid receiver",
       );
     });
 
-    // it("setTokenRoyalty: should emit 'SetDefaultRoyalties' on success", async () => {
-    //   // should emit "SetTokenRoyalty"
-    //   await expect(royalToken.connect(admin).setTokenRoyalty(royaltyReceiver.getAddress(), FEE_DENOMINATOR))
-    //     .to.emit(royalToken, "SetTokenRoyalty")
-    //     .withArgs(await admin.getAddress(), await royaltyReceiver.getAddress(), FEE_DENOMINATOR);
-    // });
+    it("setTokenRoyalty: should emit 'SetDefaultRoyalties' on success", async () => {
+      const tokenId = BigNumber.from("1");
+      const contractFeeDenominator = await royalToken.feeDenominator();
+      // should emit "SetTokenRoyalty"
+      await expect(royalToken.connect(admin).setTokenRoyalty(tokenId, royaltyReceiver.getAddress(), ROYALTY_FRACTION))
+        .to.emit(royalToken, "SetTokenRoyalty")
+        .withArgs(await admin.getAddress(), tokenId, await royaltyReceiver.getAddress(), ROYALTY_FRACTION);
+
+      const salesPrice = BigNumber.from("1500");
+      const royaltyAmount = salesPrice.mul(ROYALTY_FRACTION).div(contractFeeDenominator);
+
+      // get royalty amount by token id
+      const [receiver, amount] = await royalToken.royaltyInfo(tokenId, salesPrice);
+
+      expect(receiver).to.be.equal(await royaltyReceiver.getAddress());
+      expect(amount).to.be.equal(royaltyAmount);
+    });
   });
 
   describe("Set contract URI", () => {
@@ -224,12 +233,10 @@ describe("RoyalERC1155 Unit Tests", () => {
 
   it("supportsInterface: Supports IERC165, IERC2981 and IERC1155", async () => {
     // Interface IDs
-    const Ierc165InterfaceId = "0x01ffc9a7";
     const Ierc2981InterfaceId = "0x2a55205a";
     const Ierc1155InterfaceId = "0xd9b67a26";
 
     // Check if interfaces are supported
-    expect(await royalToken.supportsInterface(Ierc165InterfaceId)).to.be.true;
     expect(await royalToken.supportsInterface(Ierc2981InterfaceId)).to.be.true;
     expect(await royalToken.supportsInterface(Ierc1155InterfaceId)).to.be.true;
   });
