@@ -20,6 +20,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
 
 describe("RoyalERC1155 Unit Tests", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let deployer: Signer;
   let admin: Signer;
   let owner: Signer;
