@@ -130,7 +130,7 @@ library IROFinance {
         return convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
     }
 
-    /// @notice Get the expected price of an IRO purchase (without slippage)
+    /// @notice Get the price with slippage
     /// @param _finance Finance structure
     /// @param _unitPrice Unit price of the token
     /// @param _paymentToken Payment token address
