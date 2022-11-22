@@ -10,6 +10,7 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import { IUniswapV2Router01 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
 import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
+import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
 
 /// @title IRO Finance
 /// @author Horizon DAO (Yuri Fernandes)
@@ -34,28 +35,28 @@ library IROFinance {
     ///     used to swap tokens and consult relative prices
     struct Finance {
         IUniswapV2Router01 swapRouter;
-        FeedRegistryInterface priceFeedRegistry;
+        IPriceOracle priceOracle;
         address weth;
-        address basePriceToken;
+        address baseCurrency;
     }
 
     /// @dev Initialize the Finance structure
     /// @param _finance Finance structure
     /// @param _swapRouter Address of the Uniswap/Sushiswap router used to swap tokens
-    /// @param _priceFeedRegistry Address for Chainlink Price Feed Registry
+    /// @param _priceOracle Price Oracle address
     /// @param _weth WETH contract address
-    /// @param _basePriceToken Address of the token used as the base precification currency
+    /// @param _baseCurrency Address of the token used as the base precification currency
     function initializeFinance(
         Finance storage _finance,
         address _swapRouter,
-        address _priceFeedRegistry,
+        address _priceOracle,
         address _weth,
-        address _basePriceToken
+        address _baseCurrency
     ) internal {
         _finance.swapRouter = IUniswapV2Router01(_swapRouter);
-        _finance.priceFeedRegistry = FeedRegistryInterface(_priceFeedRegistry);
+        _finance.priceOracle = IPriceOracle(_priceOracle);
         _finance.weth = _weth;
-        _finance.basePriceToken = _basePriceToken;
+        _finance.baseCurrency = _baseCurrency;
     }
 
     /// @dev Process commit payment
@@ -74,7 +75,7 @@ library IROFinance {
         uint16 _slippage
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
-        if (_paymentToken == _finance.basePriceToken) {
+        if (_paymentToken == _finance.baseCurrency) {
             require(valueInBase == _amountToPay, "Invalid amount");
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
@@ -83,7 +84,7 @@ library IROFinance {
             IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
             address[] memory path = new address[](2);
             path[0] = _paymentToken;
-            path[1] = _finance.basePriceToken;
+            path[1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
                 valueInBase,
                 valueWithSlippage,
@@ -99,7 +100,7 @@ library IROFinance {
             require(msg.value >= valueWithSlippage, "Not enough ethers sent");
             address[] memory path = new address[](2);
             path[0] = _finance.weth;
-            path[1] = _finance.basePriceToken;
+            path[1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
                 valueInBase,
                 path,
@@ -124,7 +125,7 @@ library IROFinance {
         uint256 _amountToPurchase
     ) internal view returns (uint256) {
         uint256 valueInBase = _amountToPurchase * _unitPrice;
-        if (_paymentToken == _finance.basePriceToken) {
+        if (_paymentToken == _finance.baseCurrency) {
             return valueInBase;
         }
         return convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
@@ -144,7 +145,7 @@ library IROFinance {
         uint16 _slippage
     ) internal view returns (uint256) {
         uint256 expectedPrice_ = expectedPrice(_finance, _unitPrice, _paymentToken, _amountToPurchase);
-        if (_paymentToken == _finance.basePriceToken) return expectedPrice_;
+        if (_paymentToken == _finance.baseCurrency) return expectedPrice_;
         return (expectedPrice_ * (SLIPPAGE_DENOMINATOR + _slippage)) / SLIPPAGE_DENOMINATOR;
     }
 
@@ -183,16 +184,16 @@ library IROFinance {
     ) internal returns (uint256 listingOwnerAmount, uint256 treasuryAmount, uint256 realEstateFundsAmount) {
         if (_listingOwnerFee > 0) {
             listingOwnerAmount = (_listingOwnerFee * _totalFunding) / FEE_DENOMINATOR;
-            sendErc20(_listingOwner, listingOwnerAmount, _finance.basePriceToken);
+            sendErc20(_listingOwner, listingOwnerAmount, _finance.baseCurrency);
         }
         if (_treasuryFee > 0) {
             treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
-            sendErc20(_treasury, treasuryAmount, _finance.basePriceToken);
+            sendErc20(_treasury, treasuryAmount, _finance.baseCurrency);
         }
         realEstateFundsAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
         if (realEstateFundsAmount > 0) {
-            IERC20Extended(_finance.basePriceToken).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
-            _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.basePriceToken);
+            IERC20Extended(_finance.baseCurrency).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
+            _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.baseCurrency);
         }
     }
 
@@ -222,40 +223,10 @@ library IROFinance {
         uint256 _valueInBase,
         address _paymentToken
     ) internal view returns (uint256) {
-        uint256 paymentTokenPriceInBase = uint256(getTokenPriceInBaseTokens(_finance, _paymentToken));
-        uint8 priceDecimals = _getPriceDecimals(_finance, _paymentToken);
-        uint8 baseTokenDecimal = _getTokenDecimals(_finance.basePriceToken);
-        uint8 paymentTokenDecimals = _getTokenDecimals(_paymentToken);
-        if (priceDecimals > baseTokenDecimal) {
-            paymentTokenPriceInBase /= 10 ** (priceDecimals - baseTokenDecimal);
-        } else if (priceDecimals < baseTokenDecimal) {
-            paymentTokenPriceInBase *= 10 ** (priceDecimals - baseTokenDecimal);
-        }
+        uint256 paymentTokenPriceInBase = _finance.priceOracle.getPrice(_paymentToken, _finance.baseCurrency);
+        uint8 paymentTokenDecimals = IERC20Extended(_paymentToken).decimals();
+
         return (_valueInBase * 10 ** uint256(paymentTokenDecimals)) / paymentTokenPriceInBase;
-    }
-
-    /// @dev Get ETH price in base tokens
-    /// @param _finance Finance structure
-    /// @return Price in base tokens
-    function getETHPriceInBaseTokens(Finance memory _finance) internal view returns (int256) {
-        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
-            .priceFeedRegistry
-            .latestRoundData(Denominations.ETH, _finance.basePriceToken);
-        require(roundId == answeredInRound, "Invalid Answer");
-        require(updatedAt > 0, "Round not complete");
-        return priceInBase;
-    }
-
-    /// @dev Get token price in base tokens
-    /// @param _finance Finance structure
-    /// @return Price in base tokens
-    function getTokenPriceInBaseTokens(Finance memory _finance, address _paymentToken) internal view returns (int256) {
-        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = _finance
-            .priceFeedRegistry
-            .latestRoundData(_paymentToken, _finance.basePriceToken);
-        require(roundId == answeredInRound, "Invalid Answer");
-        require(updatedAt > 0, "Round not complete");
-        return priceInBase;
     }
 
     /// @dev Get the number of decimals of a token
@@ -264,13 +235,5 @@ library IROFinance {
     function _getTokenDecimals(address _token) private view returns (uint8) {
         if (_token == address(0)) return ETH_DECIMALS;
         return IERC20Extended(_token).decimals();
-    }
-
-    /// @dev Get the number of decimals in the price of `_paymentToken` in base
-    /// @param _finance Finance structure
-    /// @param _paymentToken Payment token address
-    /// @return Price decimals
-    function _getPriceDecimals(Finance memory _finance, address _paymentToken) private view returns (uint8) {
-        return _finance.priceFeedRegistry.decimals(_paymentToken, _finance.basePriceToken);
     }
 }

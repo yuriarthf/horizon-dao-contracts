@@ -127,7 +127,7 @@ contract InitialRealEstateOffering is Ownable {
     /// @param _realEstateNft RealEstateNFT contract address
     /// @param _treasury Treasury contract address
     /// @param _realEstateFunds RealEstateFunds contract address
-    /// @param _basePriceToken Base token used to precify the IRO tokens
+    /// @param _baseCurrency Base token used to precify the IRO tokens
     /// @param _priceFeedRegistry Chainlink Price Feed Registry address
     /// @param _swapRouter Uniswap or Sushiswap swap router
     /// @param _weth WETH contract address
@@ -135,28 +135,28 @@ contract InitialRealEstateOffering is Ownable {
         address _realEstateNft,
         address _treasury,
         address _realEstateFunds,
-        address _basePriceToken,
+        address _baseCurrency,
         address _priceFeedRegistry,
         address _swapRouter,
         address _weth
     ) {
         require(_realEstateNft != address(0), "!_realEstateNft");
         require(_treasury != address(0), "!_treasury");
-        require(_basePriceToken != address(0), "!_basePriceToken");
+        require(_baseCurrency != address(0), "!_baseCurrency");
         require(_priceFeedRegistry != address(0), "!_priceFeedRegistry");
         require(_swapRouter != address(0), "!_swapRouter");
         require(_weth != address(0), "!_weth");
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
         realEstateFunds = IRealEstateFunds(_realEstateFunds);
-        finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _basePriceToken);
+        finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _baseCurrency);
     }
 
     /// @dev Set a new base price token
-    /// @param _basePriceToken Base price token address (ERC20)
-    function setBasePriceToken(address _basePriceToken) external onlyOwner {
-        require(_basePriceToken != address(0), "!_basePriceToken");
-        finance.basePriceToken = _basePriceToken;
+    /// @param _baseCurrency Base price token address (ERC20)
+    function setBaseCurrency(address _baseCurrency) external onlyOwner {
+        require(_baseCurrency != address(0), "!_baseCurrency");
+        finance.baseCurrency = _baseCurrency;
     }
 
     /// @dev Create new IRO
@@ -220,7 +220,7 @@ contract InitialRealEstateOffering is Ownable {
         uint16 _slippage
     ) external payable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
-        require(_paymentToken == finance.basePriceToken || whitelistedCurrency[_paymentToken], "Currency not allowed");
+        require(_paymentToken == finance.baseCurrency || whitelistedCurrency[_paymentToken], "Currency not allowed");
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
@@ -258,7 +258,7 @@ contract InitialRealEstateOffering is Ownable {
             realEstateNft.mint(_retrieveRealEstateId(_iroId), msg.sender, amountToMint);
             emit TokensClaimed(_iroId, msg.sender, _to, amountToMint);
         } else {
-            IROFinance.sendErc20(_to, commitAmount, finance.basePriceToken);
+            IROFinance.sendErc20(_to, commitAmount, finance.baseCurrency);
             commits[_iroId][msg.sender] = 0;
             emit CashBack(_iroId, msg.sender, _to, commitAmount);
         }
