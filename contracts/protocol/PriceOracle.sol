@@ -44,9 +44,10 @@ contract PriceOracle is IPriceOracle, Ownable {
     /// @param _quote Quote currency address
     /// @return Base price in quote (int256)
     function _getAnswer(address _base, address _quote) internal view returns (int256) {
-        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = priceAggregator[_base][
-            _quote
-        ].latestRoundData();
+        AggregatorV3Interface priceAggregator_ = priceAggregator[_base][_quote];
+        require(address(priceAggregator_) != address(0), "Price Aggregator not available");
+        (uint256 roundId, int256 priceInBase, , uint256 updatedAt, uint256 answeredInRound) = priceAggregator_
+            .latestRoundData();
         require(roundId == answeredInRound, "Invalid Answer");
         require(updatedAt > 0, "Round not complete");
         return priceInBase;
