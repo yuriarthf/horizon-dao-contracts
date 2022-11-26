@@ -10,7 +10,12 @@ import { expect } from "chai";
 chai.use(solidity);
 
 // Import contract types
-import type { RealEstateERC1155, RealEstateERC1155__factory } from "../../typechain-types";
+import type {
+  RealEstateERC1155,
+  RealEstateERC1155__factory,
+  ERC20PermitMock,
+  ERC20PermitMock__factory,
+} from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
 import { ethers, upgrades } from "hardhat";
@@ -24,7 +29,11 @@ describe("RealEstateERC1155 Unit Tests", () => {
   let owner: Signer;
   let minter: Signer;
   let burner: Signer;
+  let yieldCurrency: ERC20PermitMock;
   let realEstateToken: RealEstateERC1155;
+
+  const NAME_CURRENCY = "Yield Currency";
+  const SYMBOL_CURRENCY = "YDC";
 
   const URI = "https://test.com/";
   const NAME = "Real Estate NFT";
@@ -34,10 +43,19 @@ describe("RealEstateERC1155 Unit Tests", () => {
     // get signers
     [, admin, owner, minter, burner] = await ethers.getSigners();
 
+    // deploy the yield currency
+    const yieldCurrencyFactory = <ERC20PermitMock__factory>await ethers.getContractFactory("ERC20PermitMock");
+    yieldCurrency = await yieldCurrencyFactory.deploy(NAME_CURRENCY, SYMBOL_CURRENCY);
+
     // deploy RealEstateERC1155 contract
     const realEstateTokenFactory = <RealEstateERC1155__factory>await ethers.getContractFactory("RealEstateERC1155");
     realEstateToken = <RealEstateERC1155>(
-      await upgrades.deployProxy(realEstateTokenFactory, [URI, await admin.getAddress(), await owner.getAddress()])
+      await upgrades.deployProxy(realEstateTokenFactory, [
+        URI,
+        await admin.getAddress(),
+        await owner.getAddress(),
+        yieldCurrency.address,
+      ])
     );
   });
 
@@ -166,7 +184,9 @@ describe("RealEstateERC1155 Unit Tests", () => {
       it("burn: reverts with '!burner' message if caller is not the burner", async () => {
         // should revert with "!burner"
         await expect(
-          realEstateToken.connect(realEstateReceiver).burn(currentId.sub(1), SECOND_MINT),
+          realEstateToken
+            .connect(realEstateReceiver)
+            .burn(currentId.sub(1), realEstateReceiver.getAddress(), SECOND_MINT),
         ).to.be.revertedWith("!burner");
       });
 
@@ -189,9 +209,11 @@ describe("RealEstateERC1155 Unit Tests", () => {
         expect(await realEstateToken.balanceOf(burner.getAddress(), currentId.sub(1))).to.be.equal(SECOND_MINT);
 
         // burn all tokens
-        await expect(realEstateToken.connect(burner).burn(currentId.sub(1), SECOND_MINT))
+        await expect(
+          realEstateToken.connect(burner).burn(currentId.sub(1), realEstateReceiver.getAddress(), SECOND_MINT),
+        )
           .to.emit(realEstateToken, "RealEstateNFTBurned")
-          .withArgs(currentId.sub(1), await burner.getAddress(), SECOND_MINT);
+          .withArgs(currentId.sub(1), await realEstateReceiver.getAddress(), await burner.getAddress(), SECOND_MINT);
 
         // check burner balance
         expect(await realEstateToken.balanceOf(burner.getAddress(), currentId.sub(1))).to.be.equal(BigNumber.from(0));

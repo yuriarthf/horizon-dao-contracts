@@ -23,30 +23,36 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     using AddressUpgradeable for address;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    /// @dev Structure to auxiliate yield calculation
     struct Deposit {
         uint256 unlockedAmountPerToken;
         uint256 lockedAmount;
-        uint128 unlockStarts;
-        uint128 unlockEnds;
+        uint128 unlockStart;
+        uint128 unlockEnd;
     }
 
     /// @dev Address of the minter: Can execute mint function
     address public minter;
 
-    /// @dev Address of the burner: Can execute burning functions
+    /// @dev Address of the burner: Can execute burn function
     address public burner;
 
+    /// @dev Address of the depositor: Can execute deposit function
     address public depositor;
 
     /// @dev Current value shows the next available token ID
     CountersUpgradeable.Counter private _currentId;
 
+    /// @dev Currency used to pay yield
     address public yieldCurrency;
 
+    /// @dev mapping (tokenId => Deposit)
     mapping(uint256 => Deposit) private _deposits;
 
+    /// @dev mapping (tokenId => account => yieldPerTokenClaimed)
     mapping(uint256 => mapping(address => uint256)) public yieldPerTokenClaimed;
 
+    /// @dev mapping (tokenId => account => yieldBalance)
     mapping(uint256 => mapping(address => uint256)) public yieldBalance;
 
     /// @dev Emitted when a new minter is set
@@ -55,13 +61,31 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     /// @dev Emitted when a new burner is set
     event SetBurner(address indexed _by, address indexed _burner);
 
+    /// @dev Emitted when a new depositor is set
     event SetDepositor(address indexed _by, address indexed _depositor);
 
     /// @dev Emitted when new reNFTs are minted
     event RealEstateNFTMinted(uint256 indexed _id, address indexed _minter, address indexed _to, uint256 _amount);
 
     /// @dev Emitted when reNFTs are burned
-    event RealEstateNFTBurned(uint256 indexed _id, address indexed _burner, uint256 _amount);
+    event RealEstateNFTBurned(
+        uint256 indexed _id,
+        address indexed _originAccount,
+        address indexed _burner,
+        uint256 _amount
+    );
+
+    /// @dev Emitted when yield is deposited
+    event NewDeposit(
+        uint256 indexed _id,
+        address indexed _depositor,
+        uint256 _amount,
+        uint128 _unlockStart,
+        uint128 _unlockEnd
+    );
+
+    /// @dev Emitted when yield is claimed
+    event ClaimYield(uint256 indexed _id, address indexed _by, address indexed _to, uint256 _yieldClaimed);
 
     /// @dev Initialize RealEstateNFT
     /// @param _uri Standard (fallback) URI for the offchain NFT metadata
@@ -119,51 +143,83 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
         if (totalSupply(_id) == 0) {
             require(_id == 0 || totalSupply(_id - 1) > 0, "IDs should be sequential");
             _currentId.increment();
+        } else {
+            _updateDeposit(_id);
         }
-        _updateDeposit(_id);
         _mint(_to, _id, _amount, bytes(""));
         emit RealEstateNFTMinted(_id, _msgSender(), _to, _amount);
     }
 
+    /// @dev Deposit yield to a given token ID
+    /// @param _id Token ID
+    /// @param _amount Amount to deposit
+    /// @param _duration Time to distribute the cumulative yield
+    /// @param _startOffset Period of time before yield starts to cumulate
     function deposit(uint256 _id, uint256 _amount, uint128 _duration, uint128 _startOffset) external {
         require(_msgSender() == depositor, "!depositor");
+        require(_amount > 0, "!deposit");
         IERC20Upgradeable(yieldCurrency).safeTransferFrom(_msgSender(), address(this), _amount);
         Deposit memory deposit_ = _deposits[_id];
-        uint256 unlockedYield = _unlockedYield(deposit_);
-        uint128 unlockStarts = now128() + _startOffset;
+        uint256 unlockedYield = _unlockableYield(deposit_);
+        uint128 unlockStart = now128() + _startOffset;
         _deposits[_id].unlockedAmountPerToken += unlockedYield / totalSupply(_id);
         _deposits[_id].lockedAmount = (deposit_.lockedAmount - unlockedYield) + _amount;
-        _deposits[_id].unlockStarts = unlockStarts;
-        _deposits[_id].unlockEnds = unlockStarts + _duration;
+        _deposits[_id].unlockStart = unlockStart;
+        _deposits[_id].unlockEnd = unlockStart + _duration;
+        emit NewDeposit(_id, _msgSender(), _amount, unlockStart, unlockStart + _duration);
     }
 
+    /// @notice Claim Yield for a given token ID
+    /// @param _id Token ID
+    /// @param _to Yield receiver
     function claimYield(uint256 _id, address _to) external {
         _update(_id, _msgSender());
         uint256 userYieldBalance = yieldBalance[_id][_msgSender()];
         yieldBalance[_id][_msgSender()] = 0;
         IERC20Upgradeable(yieldCurrency).safeTransfer(_to, userYieldBalance);
+        emit ClaimYield(_id, _msgSender(), _to, userYieldBalance);
     }
 
-    /// @dev Burns own tokens
+    /// @dev Burns own tokens (will be used for buyouts)
     /// @dev Requires Burner role
     /// @param _id Token ID
+    /// @param _originAccount Origin account of the tokens
     /// @param _amount Amount of tokens to burn
-    function burn(uint256 _id, uint256 _amount) external {
+    function burn(uint256 _id, address _originAccount, uint256 _amount) external {
         require(_msgSender() == burner, "!burner");
-        _updateDeposit(_id);
+        _burnerHelper(_id, _originAccount, _amount);
         _burn(_msgSender(), _id, _amount);
-        emit RealEstateNFTBurned(_id, _msgSender(), _amount);
+        emit RealEstateNFTBurned(_id, _originAccount, _msgSender(), _amount);
     }
 
+    /// @notice Get the amount of yield pending for a given token ID and account
+    /// @param _id Token ID
+    /// @param _account Account to check for pending yield
+    function pendingYield(uint256 _id, address _account) external view returns (uint256) {
+        uint256 yieldPerToken_ = yieldPerToken(_id);
+        return
+            yieldBalance[_id][_account] +
+            balanceOf(_account, _id) *
+            (yieldPerToken_ - yieldPerTokenClaimed[_id][_account]);
+    }
+
+    /// @notice Current time limited to 128 bits
     function now128() public view returns (uint128) {
         return uint128(block.timestamp);
     }
 
+    /// @notice Get current yield per token
+    /// @param _id Token ID
     function yieldPerToken(uint256 _id) public view returns (uint256) {
         Deposit memory deposit_ = _deposits[_id];
-        return deposit_.unlockedAmountPerToken + _unlockedYield(deposit_) / totalSupply(_id);
+        uint256 totalSupply_ = totalSupply(_id);
+        if (totalSupply_ == 0) return 0;
+        return deposit_.unlockedAmountPerToken + _unlockableYield(deposit_) / totalSupply_;
     }
 
+    /// @dev Updated yield for an account
+    /// @param _id Token ID
+    /// @param _account Account to update yield
     function _update(uint256 _id, address _account) internal {
         if (_account == address(0)) return;
         uint256 yieldPerToken_ = yieldPerToken(_id);
@@ -173,22 +229,43 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
         yieldPerTokenClaimed[_id][_account] = yieldPerToken_;
     }
 
+    /// @dev Update deposit information (when totalSupply changes)
+    /// @param _id Token ID
     function _updateDeposit(uint256 _id) internal {
         Deposit memory deposit_ = _deposits[_id];
-        if (deposit_.lockedAmount == 0 || now128() <= deposit_.unlockStarts) return;
-        uint256 unlockedYield = _unlockedYield(deposit_);
+        if (deposit_.lockedAmount == 0 || now128() <= deposit_.unlockStart) return;
+        uint256 totalSupply_ = totalSupply(_id);
+        if (totalSupply_ == 0) return;
+        uint256 unlockedYield = _unlockableYield(deposit_);
         _deposits[_id].lockedAmount -= unlockedYield;
-        _deposits[_id].unlockedAmountPerToken += unlockedYield / totalSupply(_id);
-        if (now128() <= deposit_.unlockEnds) _deposits[_id].unlockStarts = now128();
+        _deposits[_id].unlockedAmountPerToken += unlockedYield / totalSupply_;
+        if (now128() <= deposit_.unlockEnd) _deposits[_id].unlockStart = now128();
     }
 
-    function _unlockedYield(Deposit memory _deposit) internal view returns (uint256) {
-        if (now128() <= _deposit.unlockStarts) return 0;
-        if (now128() >= _deposit.unlockEnds) return _deposit.lockedAmount;
-        uint128 unlockDuration = _deposit.unlockEnds - _deposit.unlockStarts;
-        return (_deposit.lockedAmount * (now128() - _deposit.unlockStarts)) / unlockDuration;
+    /// @dev Get the unlockable yield
+    /// @param _deposit Deposit object to get the unlockable yield
+    function _unlockableYield(Deposit memory _deposit) internal view returns (uint256) {
+        if (now128() <= _deposit.unlockStart) return 0;
+        if (now128() >= _deposit.unlockEnd) return _deposit.lockedAmount;
+        uint128 unlockDuration = _deposit.unlockEnd - _deposit.unlockStart;
+        return (_deposit.lockedAmount * (now128() - _deposit.unlockStart)) / unlockDuration;
     }
 
+    /// @dev Do the necessary operations before burning tokens
+    /// @param _id Token ID
+    /// @param _originAccount Origin account of the tokens
+    /// @param _amount Amount of tokens to burn
+    function _burnerHelper(uint256 _id, address _originAccount, uint256 _amount) internal {
+        _updateDeposit(_id);
+        uint256 yieldPerToken_ = yieldPerToken(_id);
+        yieldBalance[_id][_originAccount] +=
+            (balanceOf(_originAccount, _id) + _amount) *
+            (yieldPerToken_ - yieldPerTokenClaimed[_id][_originAccount]);
+        yieldPerTokenClaimed[_id][_originAccount] = yieldPerToken_;
+    }
+
+    /// @dev Extended _beforeTokenTransfer to update accounts' yield balance
+    /// @dev See {ERC1155-_beforeTokenTransfer}
     function _beforeTokenTransfer(
         address _operator,
         address _from,
