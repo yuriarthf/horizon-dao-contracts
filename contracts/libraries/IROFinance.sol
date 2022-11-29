@@ -108,7 +108,7 @@ library IROFinance {
             for (uint256 i = 0; i < _relativePath.length; i++) {
                 path[i + 1] = _relativePath[i];
             }
-            path[1] = _finance.baseCurrency;
+            path[path.length - 1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
                 valueInBase,
                 path,
