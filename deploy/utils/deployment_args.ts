@@ -6,10 +6,17 @@ import { ethers } from "ethers";
 // types
 import { Address } from "../../test/types";
 
-// Common args
+/*************** Common ***************/
+// Horizon Multisig addresses
 const horizonMultisig: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
+};
+
+// USDT addresses
+const usdt: { [network: string]: string } = {
+  mainnet: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  goerli: "0x509Ee0d083DdF8AC028f2a56731412edD63223B9",
 };
 
 /*************** PioneerERC1155 ***************/
@@ -50,5 +57,6 @@ export function realEstateErc1155Args(network: string) {
     baseUri: "", // Base URI for the offchain NFT metadata
     admin: horizonMultisig[network], // Address with contract administration privileges
     owner: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // EOA to be used as OpenSea collection admin
+    yieldCurrency: usdt[network],
   };
 }

@@ -42,6 +42,11 @@ contract InitialRealEstateOffering is Ownable {
         uint256 totalFunding;
     }
 
+    struct WhitelistedCurrency {
+        bool whitelisted;
+        address[] relativePath;
+    }
+
     /// @notice Treasury contract address
     address public treasury;
 
@@ -67,8 +72,8 @@ contract InitialRealEstateOffering is Ownable {
     /// @dev mapping (iroId => realEstateId)
     mapping(uint256 => uint256) public realEstateId;
 
-    /// @dev mapping (currencyAddress => whitelited)
-    mapping(address => bool) public whitelistedCurrency;
+    /// @dev mapping (currencyAddress => WhitelistedCurrency)
+    mapping(address => WhitelistedCurrency) public whitelistedCurrency;
 
     /// @dev Points out whether funds have been withdrawn from IRO
     BitMaps.BitMap private _fundsWithdrawn;
@@ -114,10 +119,17 @@ contract InitialRealEstateOffering is Ownable {
     /// @dev Emitted when an investors withdraw it's funds after an IRO fails
     event CashBack(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _commitAmount);
 
+    /// @dev Emitted when a new base currency is set
+    event SetBaseCurrency(address indexed _by, address indexed _baseCurrency);
+
+    /// @dev Emitted when the currency relative path is updated
+    event PathUpdated(address indexed _by, address indexed _currency);
+
     /// @dev Emitted when funds from an IRO are withdrawn
     event FundsWithdrawn(
         uint256 indexed _iroId,
         address indexed _by,
+        bool indexed _realEstateFundsSet,
         uint256 _listingOwnerAmount,
         uint256 _treasuryAmount,
         uint256 _realEstateFundsAmount
@@ -150,6 +162,7 @@ contract InitialRealEstateOffering is Ownable {
         treasury = _treasury;
         realEstateFunds = IRealEstateFunds(_realEstateFunds);
         finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _baseCurrency);
+        whitelistedCurrency[address(0)].whitelisted = true;
     }
 
     /// @dev Set a new base price token
@@ -157,6 +170,21 @@ contract InitialRealEstateOffering is Ownable {
     function setBaseCurrency(address _baseCurrency) external onlyOwner {
         require(_baseCurrency != address(0), "!_baseCurrency");
         finance.baseCurrency = _baseCurrency;
+        emit SetBaseCurrency(msg.sender, _baseCurrency);
+    }
+
+    /// @dev Set new treasury
+    /// @param _treasury Treasury address
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "!_treasury");
+        treasury = _treasury;
+    }
+
+    /// @dev Set new real estate funds
+    /// @param _realEstateFunds RealEstateFunds address
+    function setRealEstateFunds(address _realEstateFunds) external onlyOwner {
+        require(_realEstateFunds != address(0), "!_realEstateFunds");
+        realEstateFunds = IRealEstateFunds(_realEstateFunds);
     }
 
     /// @dev Create new IRO
@@ -200,7 +228,6 @@ contract InitialRealEstateOffering is Ownable {
             totalFunding: 0
         });
         _nextAvailableId.increment();
-        whitelistedCurrency[address(0)] = true;
 
         emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
     }
@@ -220,7 +247,8 @@ contract InitialRealEstateOffering is Ownable {
         uint16 _slippage
     ) external payable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
-        require(_paymentToken == finance.baseCurrency || whitelistedCurrency[_paymentToken], "Currency not allowed");
+        WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_paymentToken];
+        require(_paymentToken == finance.baseCurrency || whitelistedCurrency_.whitelisted, "Currency not allowed");
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
@@ -234,7 +262,8 @@ contract InitialRealEstateOffering is Ownable {
             _paymentToken,
             _amountToPay,
             _amountToPurchase,
-            _slippage
+            _slippage,
+            whitelistedCurrency_.relativePath
         );
 
         commits[_iroId][msg.sender] += _amountToPurchase;
@@ -285,17 +314,29 @@ contract InitialRealEstateOffering is Ownable {
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
         require(!_fundsWithdrawn.get(_iroId), "Already withdrawn");
-        (uint256 listingOwnerAmount, uint256 treasuryAmount, uint256 realEstateFundsAmount) = finance.distributeFunds(
-            iro.listingOwner,
-            treasury,
-            realEstateFunds,
-            _retrieveRealEstateId(_iroId),
-            iro.totalFunding,
-            iro.listingOwnerFee,
-            iro.treasuryFee
-        );
+        (
+            uint256 listingOwnerAmount,
+            uint256 treasuryAmount,
+            uint256 realEstateFundsAmount,
+            bool realEstateFundsSet
+        ) = finance.distributeFunds(
+                iro.listingOwner,
+                treasury,
+                realEstateFunds,
+                _retrieveRealEstateId(_iroId),
+                iro.totalFunding,
+                iro.listingOwnerFee,
+                iro.treasuryFee
+            );
         _fundsWithdrawn.set(_iroId);
-        emit FundsWithdrawn(_iroId, msg.sender, listingOwnerAmount, treasuryAmount, realEstateFundsAmount);
+        emit FundsWithdrawn(
+            _iroId,
+            msg.sender,
+            realEstateFundsSet,
+            listingOwnerAmount,
+            treasuryAmount,
+            realEstateFundsAmount
+        );
     }
 
     /// @dev Whitelist payment currencies
@@ -303,8 +344,17 @@ contract InitialRealEstateOffering is Ownable {
     /// @param _whitelist Whether to whitelist
     function whitelistCurrency(address _currency, bool _whitelist) external onlyOwner {
         require(_currency != address(0), "!invalid address");
-        whitelistedCurrency[_currency] = _whitelist;
+        whitelistedCurrency[_currency].whitelisted = _whitelist;
         emit WhitelistCurrency(msg.sender, _currency, _whitelist);
+    }
+
+    /// @dev Update relative swap router path of a currency
+    /// @param _currency Currency ERC20 address
+    /// @param _relativePath Swap relative path
+    function setrelativePath(address _currency, address[] memory _relativePath) external onlyOwner {
+        require(_currency != address(0), "!invalid address");
+        whitelistedCurrency[_currency].relativePath = _relativePath;
+        emit PathUpdated(msg.sender, _currency);
     }
 
     /// @notice Get the expected price of an IRO purchase (without slippage)

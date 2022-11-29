@@ -72,7 +72,8 @@ library IROFinance {
         address _paymentToken,
         uint256 _amountToPay,
         uint256 _amountToPurchase,
-        uint16 _slippage
+        uint16 _slippage,
+        address[] memory _pathBetween
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _finance.baseCurrency) {
@@ -82,9 +83,12 @@ library IROFinance {
             uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueWithSlippage);
             IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
-            address[] memory path = new address[](2);
+            address[] memory path = new address[](_pathBetween.length + 2);
             path[0] = _paymentToken;
-            path[1] = _finance.baseCurrency;
+            for (uint256 i = 0; i < _pathBetween.length; i++) {
+                path[i + 1] = _pathBetween[i];
+            }
+            path[path.length - 1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
                 valueInBase,
                 valueWithSlippage,
@@ -98,8 +102,11 @@ library IROFinance {
         } else {
             uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
             require(msg.value >= valueWithSlippage, "Not enough ethers sent");
-            address[] memory path = new address[](2);
+            address[] memory path = new address[](_pathBetween.length + 2);
             path[0] = _finance.weth;
+            for (uint256 i = 0; i < _pathBetween.length; i++) {
+                path[i + 1] = _pathBetween[i];
+            }
             path[1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
                 valueInBase,
@@ -181,19 +188,33 @@ library IROFinance {
         uint256 _totalFunding,
         uint256 _listingOwnerFee,
         uint256 _treasuryFee
-    ) internal returns (uint256 listingOwnerAmount, uint256 treasuryAmount, uint256 realEstateFundsAmount) {
+    )
+        internal
+        returns (
+            uint256 listingOwnerAmount,
+            uint256 treasuryAmount,
+            uint256 realEstateFundsAmount,
+            bool realEstateFundsSet
+        )
+    {
         if (_listingOwnerFee > 0) {
             listingOwnerAmount = (_listingOwnerFee * _totalFunding) / FEE_DENOMINATOR;
             sendErc20(_listingOwner, listingOwnerAmount, _finance.baseCurrency);
         }
-        if (_treasuryFee > 0) {
-            treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
-            sendErc20(_treasury, treasuryAmount, _finance.baseCurrency);
-        }
+        treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
         realEstateFundsAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
-        if (realEstateFundsAmount > 0) {
-            IERC20Extended(_finance.baseCurrency).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
-            _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.baseCurrency);
+        if (address(_realEstateFunds) != address(0)) {
+            realEstateFundsSet = true;
+            if (treasuryAmount > 0) {
+                sendErc20(_treasury, treasuryAmount, _finance.baseCurrency);
+            }
+
+            if (realEstateFundsAmount > 0) {
+                IERC20Extended(_finance.baseCurrency).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
+                _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.baseCurrency);
+            }
+        } else {
+            sendErc20(_treasury, _totalFunding - listingOwnerAmount, _finance.baseCurrency);
         }
     }
 
