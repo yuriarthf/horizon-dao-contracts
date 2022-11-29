@@ -66,6 +66,7 @@ library IROFinance {
     /// @param _amountToPay Expected amount to pay (without slippage)
     /// @param _amountToPurchase Amount of tokens to purchase
     /// @param _slippage Swap slippage in basis points
+    /// @param _relativePath Swap path relative to the origin and end currency
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
@@ -73,7 +74,7 @@ library IROFinance {
         uint256 _amountToPay,
         uint256 _amountToPurchase,
         uint16 _slippage,
-        address[] memory _pathBetween
+        address[] memory _relativePath
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _finance.baseCurrency) {
@@ -83,10 +84,10 @@ library IROFinance {
             uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueWithSlippage);
             IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
-            address[] memory path = new address[](_pathBetween.length + 2);
+            address[] memory path = new address[](_relativePath.length + 2);
             path[0] = _paymentToken;
-            for (uint256 i = 0; i < _pathBetween.length; i++) {
-                path[i + 1] = _pathBetween[i];
+            for (uint256 i = 0; i < _relativePath.length; i++) {
+                path[i + 1] = _relativePath[i];
             }
             path[path.length - 1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
@@ -102,10 +103,10 @@ library IROFinance {
         } else {
             uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
             require(msg.value >= valueWithSlippage, "Not enough ethers sent");
-            address[] memory path = new address[](_pathBetween.length + 2);
+            address[] memory path = new address[](_relativePath.length + 2);
             path[0] = _finance.weth;
-            for (uint256 i = 0; i < _pathBetween.length; i++) {
-                path[i + 1] = _pathBetween[i];
+            for (uint256 i = 0; i < _relativePath.length; i++) {
+                path[i + 1] = _relativePath[i];
             }
             path[1] = _finance.baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
