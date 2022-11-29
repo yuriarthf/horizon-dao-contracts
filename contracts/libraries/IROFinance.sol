@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import { IERC20Extended } from "../interfaces/IERC20Extended.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
@@ -17,7 +17,7 @@ import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
 /// @dev Library contain functions to perform financial computations
 ///     for the InitialRealEstateOffering contract
 library IROFinance {
-    using SafeERC20 for IERC20Extended;
+    using SafeERC20Upgradeable for IERC20Extended;
 
     /// @dev Number of decimals of ETH
     uint8 public constant ETH_DECIMALS = 18;

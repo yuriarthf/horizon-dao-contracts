@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
-import { BitMaps } from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { CountersUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
+import { BitMapsUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/structs/BitMapsUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { IRealEstateERC1155 } from "../interfaces/IRealEstateERC1155.sol";
 import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
@@ -13,9 +14,9 @@ import { IROFinance } from "../libraries/IROFinance.sol";
 /// @author Horizon DAO (Yuri Fernandes)
 /// @notice Used to run IROs, mint tokens to RealEstateNFT
 ///     and distribute funds
-contract InitialRealEstateOffering is Ownable {
-    using Counters for Counters.Counter;
-    using BitMaps for BitMaps.BitMap;
+contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
+    using CountersUpgradeable for CountersUpgradeable.Counter;
+    using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
     using IROFinance for IROFinance.Finance;
 
     /// @dev IRO status enum
@@ -61,7 +62,7 @@ contract InitialRealEstateOffering is Ownable {
     IROFinance.Finance public finance;
 
     /// @dev Next available IRO ID
-    Counters.Counter private _nextAvailableId;
+    CountersUpgradeable.Counter private _nextAvailableId;
 
     /// @dev mapping (iroId => iro)
     mapping(uint256 => IRO) private _iros;
@@ -76,13 +77,13 @@ contract InitialRealEstateOffering is Ownable {
     mapping(address => WhitelistedCurrency) public whitelistedCurrency;
 
     /// @dev Points out whether funds have been withdrawn from IRO
-    BitMaps.BitMap private _fundsWithdrawn;
+    BitMapsUpgradeable.BitMap private _fundsWithdrawn;
 
     /// @dev Points out whether the listingOwner has claimed it's share
-    BitMaps.BitMap private _listingOwnerClaimed;
+    BitMapsUpgradeable.BitMap private _listingOwnerClaimed;
 
     /// @dev Whether an ID has already been set in the RealEstateNFT contract for the IRO
-    BitMaps.BitMap private _realEstateIdSet;
+    BitMapsUpgradeable.BitMap private _realEstateIdSet;
 
     /// @dev Emitted when a new payment token is added
     event TogglePaymentToken(address indexed _by, address indexed _paymentToken, bool indexed allowed);
@@ -143,7 +144,7 @@ contract InitialRealEstateOffering is Ownable {
     /// @param _priceFeedRegistry Chainlink Price Feed Registry address
     /// @param _swapRouter Uniswap or Sushiswap swap router
     /// @param _weth WETH contract address
-    constructor(
+    function initialize(
         address _realEstateNft,
         address _treasury,
         address _realEstateFunds,
@@ -151,7 +152,7 @@ contract InitialRealEstateOffering is Ownable {
         address _priceFeedRegistry,
         address _swapRouter,
         address _weth
-    ) {
+    ) external initializer {
         require(_realEstateNft != address(0), "!_realEstateNft");
         require(_treasury != address(0), "!_treasury");
         require(_baseCurrency != address(0), "!_baseCurrency");
@@ -443,6 +444,9 @@ contract InitialRealEstateOffering is Ownable {
             _realEstateId = realEstateId[_iroId];
         }
     }
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     /// @dev Get status of an IRO
     /// @param _iro IRO structure

@@ -19,6 +19,44 @@ const usdt: { [network: string]: string } = {
   goerli: "0x509Ee0d083DdF8AC028f2a56731412edD63223B9",
 };
 
+// RealEstateNFT
+const realEstateNft: { [network: string]: string } = {
+  mainnet: "",
+  goerli: "",
+};
+
+// Treasury
+const treasury: { [network: string]: string } = {
+  mainnet: "",
+  goerli: "",
+};
+
+// RealEstateFunds
+/*
+const realEstateFunds: { [network: string]: string } = {
+  mainnet: "",
+  goerli: "",
+};
+*/
+
+// Price Feed Registry
+const priceFeedRegistry: { [network: string]: string } = {
+  mainnet: "",
+  goerli: "",
+};
+
+// Swap Router
+const swapRouter: { [network: string]: string } = {
+  mainnet: "",
+  goerli: "",
+};
+
+// RealEstateFunds
+const weth: { [network: string]: string } = {
+  mainnet: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+  goerli: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
+};
+
 /*************** PioneerERC1155 ***************/
 // Constructor args
 export function pioneerErc1155Args(network: string) {
@@ -57,6 +95,20 @@ export function realEstateErc1155Args(network: string) {
     baseUri: "", // Base URI for the offchain NFT metadata
     admin: horizonMultisig[network], // Address with contract administration privileges
     owner: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // EOA to be used as OpenSea collection admin
-    yieldCurrency: usdt[network],
+    yieldCurrency: usdt[network], // Currency used to pay yields
+  };
+}
+
+/*************** InitialRealEstateOffering ***************/
+export function InitialRealEstateOffering(network: string) {
+  return {
+    realEstateNft: realEstateNft[network],
+    treasury: treasury[network],
+    /* realEstateFunds: realEstateFunds[network], */
+    realEstateFunds: "0x0000000000000000000000000000000000000000",
+    baseCurrency: usdt[network],
+    priceFeedRegistry: priceFeedRegistry[network],
+    swapRouter: swapRouter[network],
+    weth: weth[network],
   };
 }
