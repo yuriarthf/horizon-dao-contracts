@@ -44,5 +44,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 };
-func.tags = ["deploy", "RealEstateNFT", "reNFT"];
+func.tags = ["deploy", "InitialRealEstateOffering", "IRO"];
 export default func;
