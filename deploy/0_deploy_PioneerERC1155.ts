@@ -13,9 +13,6 @@ import { pioneerErc1155Args, privateClaim, whitelistSale, publicSaleOffset } fro
 import { PioneerTree } from "../test/token/utils/pioneer_tree";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  // get necessary hardhat-deploy functions
-  const { deploy } = hre.deployments;
-
   // get deployer address
   const { deployer } = await hre.getNamedAccounts();
 
@@ -24,7 +21,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const constructorArgs = pioneerErc1155Args(hre.network.name);
   if (process.env.CONFIG_pioneer_CONTRACT) {
     constructorArgs["admin"] = deployer;
-    deployResult = await deploy("pioneerERC1155", {
+    deployResult = await hre.deployments.deploy("pioneerERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,
@@ -44,7 +41,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Transfer admin to multisig
     await pioneerNft.setAdmin(pioneerErc1155Args(hre.network.name).admin);
   } else {
-    deployResult = await deploy("PioneerERC1155", {
+    deployResult = await hre.deployments.deploy("PioneerERC1155", {
       from: deployer,
       args: Object.values(constructorArgs),
       log: true,
@@ -56,7 +53,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await hre.ethers.provider.waitForTransaction(<string>deployResult.transactionHash, 5);
 
     // Verify contract
-    await hre.run("verify:verify", {
+    await hre.run("verify", {
       address: deployResult.address,
       constructorArguments: Object.values(constructorArgs),
     });

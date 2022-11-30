@@ -33,6 +33,10 @@ import "@openzeppelin/hardhat-upgrades";
 // https://github.com/sc-forks/solidity-coverage
 import "solidity-coverage";
 
+// compile Solidity sources directly from NPM dependencies
+// https://www.npmjs.com/package/hardhat-dependency-compiler
+import "hardhat-dependency-compiler";
+
 // add all hardhat tasks
 import "./tasks";
 
@@ -173,6 +177,9 @@ const config: HardhatUserConfig = {
   typechain: {
     target: "ethers-v5",
     alwaysGenerateOverloads: false, // should overloads with full signatures like deposit(uint256) be generated always, even if there are no overloads?
+  },
+  dependencyCompiler: {
+    paths: ["@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol"],
   },
 };
 export default config;

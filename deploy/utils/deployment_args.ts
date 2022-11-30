@@ -100,7 +100,7 @@ export function realEstateErc1155Args(network: string) {
 }
 
 /*************** InitialRealEstateOffering ***************/
-export function InitialRealEstateOffering(network: string) {
+export function initialRealEstateOfferingArgs(network: string) {
   return {
     realEstateNft: realEstateNft[network],
     treasury: treasury[network],
