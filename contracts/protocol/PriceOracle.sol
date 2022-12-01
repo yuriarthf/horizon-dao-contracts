@@ -21,6 +21,12 @@ contract PriceOracle is IPriceOracle, Ownable {
     /// @dev Emitted when a new price aggregator is set
     event SetAggregator(address indexed _by, address indexed _base, address indexed _quote, address _aggregator);
 
+    /// @dev Instantiate PriceOracle
+    /// @param _owner Owner address
+    constructor(address _owner) {
+        _transferOwnership(_owner);
+    }
+
     /// @inheritdoc IPriceOracle
     function setAggregator(address _base, address _quote, address _aggregator) external override onlyOwner {
         priceAggregator[_base][_quote] = AggregatorV3Interface(_aggregator);

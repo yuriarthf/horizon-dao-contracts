@@ -9,6 +9,9 @@ import { DeployFunction } from "hardhat-deploy/types";
 // Import constructor arguments for the contracts
 import { initialRealEstateOfferingArgs } from "./utils/deployment_args";
 
+// Hardhat upgrades ERC1965
+import ERC1965ProxyArtifact from "@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol/ERC1967Proxy.json";
+
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get deployer address
   const { deployer } = await hre.getNamedAccounts();
@@ -22,12 +25,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   });
 
   // deploy InitialRealEstateOffering proxy
-  const constructorArgs = Object.values(initialRealEstateOfferingArgs(hre.network.name));
+  const constructorArgs = Object.values(await initialRealEstateOfferingArgs(hre.network.name));
   const deployment = await hre.deployments.get("InitialRealEstateOffering_Impl");
   const iface = new hre.ethers.utils.Interface(deployment.abi);
   const initData = iface.encodeFunctionData("initialize", constructorArgs);
   const deployResult = await hre.deployments.deploy("InitialRealEstateOffering_Proxy", {
-    contract: "ERC1967Proxy",
+    contract: ERC1965ProxyArtifact,
     from: deployer,
     args: [deployment.address, initData],
     log: true,
@@ -40,7 +43,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Verify contract
     await hre.run("verify", {
       address: deployResult.address,
-      constructorArguments: constructorArgs,
     });
   }
 };

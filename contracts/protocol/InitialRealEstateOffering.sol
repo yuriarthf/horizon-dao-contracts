@@ -145,6 +145,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _swapRouter Uniswap or Sushiswap swap router
     /// @param _weth WETH contract address
     function initialize(
+        address _owner,
         address _realEstateNft,
         address _treasury,
         address _realEstateFunds,
@@ -164,6 +165,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         realEstateFunds = IRealEstateFunds(_realEstateFunds);
         finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _baseCurrency);
         whitelistedCurrency[address(0)].whitelisted = true;
+        _transferOwnership(_owner);
     }
 
     /// @dev Set a new base price token

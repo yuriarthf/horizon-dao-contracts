@@ -1,5 +1,7 @@
 // File contains deployment arguments for all contracts
 
+import hre from "hardhat";
+
 // Parse ethers
 import { ethers } from "ethers";
 
@@ -20,15 +22,12 @@ const usdt: { [network: string]: string } = {
 };
 
 // RealEstateNFT
-const realEstateNft: { [network: string]: string } = {
-  mainnet: "",
-  goerli: "",
-};
+const realEstateNft = async () => (await hre.deployments.get("RealEstateERC1155_Proxy")).address;
 
 // Treasury
 const treasury: { [network: string]: string } = {
   mainnet: "",
-  goerli: "",
+  goerli: "0x60d6b442292b33b745815EC90B7Ae5F315b4E777",
 };
 
 // RealEstateFunds
@@ -40,15 +39,12 @@ const realEstateFunds: { [network: string]: string } = {
 */
 
 // Price Feed Registry
-const priceFeedRegistry: { [network: string]: string } = {
-  mainnet: "",
-  goerli: "",
-};
+const priceFeedRegistry = async () => (await hre.deployments.get("PriceOracle")).address;
 
 // Swap Router
 const swapRouter: { [network: string]: string } = {
   mainnet: "",
-  goerli: "",
+  goerli: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
 };
 
 // RealEstateFunds
@@ -99,15 +95,23 @@ export function realEstateErc1155Args(network: string) {
   };
 }
 
-/*************** InitialRealEstateOffering ***************/
-export function initialRealEstateOfferingArgs(network: string) {
+/*************** PriceOracle ***************/
+export function priceOracleArgs(network: string) {
   return {
-    realEstateNft: realEstateNft[network],
+    owner: horizonMultisig[network],
+  };
+}
+
+/*************** InitialRealEstateOffering ***************/
+export async function initialRealEstateOfferingArgs(network: string) {
+  return {
+    owner: horizonMultisig[network],
+    realEstateNft: await realEstateNft(),
     treasury: treasury[network],
     /* realEstateFunds: realEstateFunds[network], */
     realEstateFunds: "0x0000000000000000000000000000000000000000",
     baseCurrency: usdt[network],
-    priceFeedRegistry: priceFeedRegistry[network],
+    priceFeedRegistry: await priceFeedRegistry(),
     swapRouter: swapRouter[network],
     weth: weth[network],
   };
