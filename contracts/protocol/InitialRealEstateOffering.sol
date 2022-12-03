@@ -54,8 +54,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @notice RealEstateNFT contract address
     IRealEstateERC1155 public realEstateNft;
 
-    /// @notice RealEstateFunds contract address
-    IRealEstateFunds public realEstateFunds;
+    /// @notice RealEstateReserves contract address
+    IRealEstateReserves public realEstateReserves;
 
     /// @notice Structure composed by the addresses
     ///     of contracts responsible for making financial operations
@@ -140,7 +140,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Initialize IRO contract
     /// @param _realEstateNft RealEstateNFT contract address
     /// @param _treasury Treasury contract address
-    /// @param _realEstateFunds RealEstateFunds contract address
+    /// @param _realEstateReserves RealEstateReserves contract address
     /// @param _baseCurrency Base token used to precify the IRO tokens
     /// @param _priceFeedRegistry Chainlink Price Feed Registry address
     /// @param _swapRouter Uniswap or Sushiswap swap router
@@ -149,7 +149,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         address _owner,
         address _realEstateNft,
         address _treasury,
-        address _realEstateFunds,
+        address _realEstateReserves,
         address _baseCurrency,
         address _priceFeedRegistry,
         address _swapRouter,
@@ -163,7 +163,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(_weth != address(0), "!_weth");
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
-        realEstateFunds = IRealEstateFunds(_realEstateFunds);
+        realEstateReserves = IRealEstateReserves(_realEstateReserves);
         finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _baseCurrency);
         whitelistedCurrency[address(0)].whitelisted = true;
         _transferOwnership(_owner);
