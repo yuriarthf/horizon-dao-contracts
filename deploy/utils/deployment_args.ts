@@ -30,9 +30,9 @@ const treasury: { [network: string]: string } = {
   goerli: "0x60d6b442292b33b745815EC90B7Ae5F315b4E777",
 };
 
-// RealEstateFunds
+// RealEstateReserves
 /*
-const realEstateFunds: { [network: string]: string } = {
+const realEstateReserves: { [network: string]: string } = {
   mainnet: "",
   goerli: "",
 };
@@ -108,8 +108,8 @@ export async function initialRealEstateOfferingArgs(network: string) {
     owner: horizonMultisig[network],
     realEstateNft: await realEstateNft(),
     treasury: treasury[network],
-    /* realEstateFunds: realEstateFunds[network], */
-    realEstateFunds: "0x0000000000000000000000000000000000000000",
+    /* realEstateReserves: realEstateReserves[network], */
+    realEstateReserves: "0x0000000000000000000000000000000000000000",
     baseCurrency: usdt[network],
     priceFeedRegistry: await priceFeedRegistry(),
     swapRouter: swapRouter[network],

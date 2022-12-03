@@ -9,7 +9,7 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 import { IUniswapV2Router01 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
-import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
+import { IRealEstateReserves } from "../interfaces/IRealEstateReserves.sol";
 import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
 
 /// @title IRO Finance
@@ -30,6 +30,9 @@ library IROFinance {
 
     /// @dev The denominator and maximum value for share
     uint16 public constant SHARE_DENOMINATOR = 10000;
+
+    /// @dev The swap fee in basis points (0.3%)
+    uint16 public constant SWAP_FEE = 30;
 
     /// @dev Structure that holds all financial types
     ///     used to swap tokens and consult relative prices
@@ -124,19 +127,23 @@ library IROFinance {
     /// @notice Get the expected price of an IRO purchase (without slippage)
     /// @param _finance Finance structure
     /// @param _unitPrice Unit price of the token
-    /// @param _paymentToken Payment token address
+    /// @param _currency Payment token address
     /// @param _amountToPurchase Amount of IRO tokens to purchase
+    /// @param _pathLength Swap path length
     function expectedPrice(
         Finance memory _finance,
         uint256 _unitPrice,
-        address _paymentToken,
-        uint256 _amountToPurchase
+        address _currency,
+        uint256 _amountToPurchase,
+        uint256 _pathLength
     ) internal view returns (uint256) {
         uint256 valueInBase = _amountToPurchase * _unitPrice;
-        if (_paymentToken == _finance.baseCurrency) {
+        if (_currency == _finance.baseCurrency) {
             return valueInBase;
         }
-        return convertBaseToPaymentToken(_finance, valueInBase, _paymentToken);
+        return
+            (convertBaseToPaymentToken(_finance, valueInBase, _currency) *
+                (FEE_DENOMINATOR + (_pathLength - 1) * SWAP_FEE)) / FEE_DENOMINATOR;
     }
 
     /// @notice Get the price with slippage
@@ -145,14 +152,16 @@ library IROFinance {
     /// @param _paymentToken Payment token address
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _slippage Swap slippage in basis points
+    /// @param _pathLength Swap path length
     function priceWithSlippage(
         Finance memory _finance,
         uint256 _unitPrice,
         address _paymentToken,
         uint256 _amountToPurchase,
-        uint16 _slippage
+        uint16 _slippage,
+        uint256 _pathLength
     ) internal view returns (uint256) {
-        uint256 expectedPrice_ = expectedPrice(_finance, _unitPrice, _paymentToken, _amountToPurchase);
+        uint256 expectedPrice_ = expectedPrice(_finance, _unitPrice, _paymentToken, _amountToPurchase, _pathLength);
         if (_paymentToken == _finance.baseCurrency) return expectedPrice_;
         return (expectedPrice_ * (SLIPPAGE_DENOMINATOR + _slippage)) / SLIPPAGE_DENOMINATOR;
     }
@@ -175,7 +184,7 @@ library IROFinance {
     /// @param _finance Finance structure
     /// @param _listingOwner The listing owner of the IRO
     /// @param _treasury Treasury contract address
-    /// @param _realEstateFunds RealEstateFunds contract address
+    /// @param _realEstateReserves RealEstateReserves contract address
     /// @param _realEstateId ID of the RealEstate token to receive the funds
     /// @param _totalFunding Total funds from the IRO
     /// @param _listingOwnerFee Fee requested by the listing owner
@@ -184,7 +193,7 @@ library IROFinance {
         Finance memory _finance,
         address _listingOwner,
         address _treasury,
-        IRealEstateFunds _realEstateFunds,
+        IRealEstateReserves _realEstateReserves,
         uint256 _realEstateId,
         uint256 _totalFunding,
         uint256 _listingOwnerFee,
@@ -194,8 +203,8 @@ library IROFinance {
         returns (
             uint256 listingOwnerAmount,
             uint256 treasuryAmount,
-            uint256 realEstateFundsAmount,
-            bool realEstateFundsSet
+            uint256 realEstateReservesAmount,
+            bool realEstateReservesSet
         )
     {
         if (_listingOwnerFee > 0) {
@@ -203,16 +212,19 @@ library IROFinance {
             sendErc20(_listingOwner, listingOwnerAmount, _finance.baseCurrency);
         }
         treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
-        realEstateFundsAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
-        if (address(_realEstateFunds) != address(0)) {
-            realEstateFundsSet = true;
+        realEstateReservesAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
+        if (address(_realEstateReserves) != address(0)) {
+            realEstateReservesSet = true;
             if (treasuryAmount > 0) {
                 sendErc20(_treasury, treasuryAmount, _finance.baseCurrency);
             }
 
-            if (realEstateFundsAmount > 0) {
-                IERC20Extended(_finance.baseCurrency).safeApprove(address(_realEstateFunds), realEstateFundsAmount);
-                _realEstateFunds.deposit(_realEstateId, realEstateFundsAmount, _finance.baseCurrency);
+            if (realEstateReservesAmount > 0) {
+                IERC20Extended(_finance.baseCurrency).safeApprove(
+                    address(_realEstateReserves),
+                    realEstateReservesAmount
+                );
+                _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _finance.baseCurrency);
             }
         } else {
             sendErc20(_treasury, _totalFunding - listingOwnerAmount, _finance.baseCurrency);

@@ -7,7 +7,7 @@ import { BitMapsUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/st
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { IRealEstateERC1155 } from "../interfaces/IRealEstateERC1155.sol";
-import { IRealEstateFunds } from "../interfaces/IRealEstateFunds.sol";
+import { IRealEstateReserves } from "../interfaces/IRealEstateReserves.sol";
 import { IROFinance } from "../libraries/IROFinance.sol";
 
 /// @title Initial Real Estate Offering (IRO)
@@ -85,9 +85,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Whether an ID has already been set in the RealEstateNFT contract for the IRO
     BitMapsUpgradeable.BitMap private _realEstateIdSet;
 
-    /// @dev Emitted when a new payment token is added
-    event TogglePaymentToken(address indexed _by, address indexed _paymentToken, bool indexed allowed);
-
     /// @dev Emitted when a new IRO is created
     event CreateIRO(
         uint256 indexed _id,
@@ -103,7 +100,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     event Commit(
         uint256 indexed _iroId,
         address indexed _user,
-        address indexed _paymentToken,
+        address indexed _currency,
         uint256 _amountInBase,
         uint256 _purchasedTokens
     );
@@ -125,6 +122,10 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Emitted when the currency relative path is updated
     event PathUpdated(address indexed _by, address indexed _currency);
+
+    event SetTreasury(address indexed _by, address indexed _treasury);
+
+    event SetRealEstateReserves(address indexed _by, address indexed _realEstateReserves);
 
     /// @dev Emitted when funds from an IRO are withdrawn
     event FundsWithdrawn(
@@ -181,13 +182,15 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0), "!_treasury");
         treasury = _treasury;
+        emit SetTreasury(msg.sender, _treasury);
     }
 
-    /// @dev Set new real estate funds
-    /// @param _realEstateFunds RealEstateFunds address
-    function setRealEstateFunds(address _realEstateFunds) external onlyOwner {
-        require(_realEstateFunds != address(0), "!_realEstateFunds");
-        realEstateFunds = IRealEstateFunds(_realEstateFunds);
+    /// @dev Set new real estate reserves
+    /// @param _realEstateReserves RealEstateReseres address
+    function setRealEstateReserves(address _realEstateReserves) external onlyOwner {
+        require(_realEstateReserves != address(0), "!_realEstateReserves");
+        realEstateReserves = IRealEstateReserves(_realEstateReserves);
+        emit SetRealEstateReserves(msg.sender, _realEstateReserves);
     }
 
     /// @dev Create new IRO
@@ -237,32 +240,32 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @notice Commit to an IRO
     /// @param _iroId ID of the IRO
-    /// @param _paymentToken Payment token address
+    /// @param _currency Currency address
     /// @param _amountToPay Expected amount to pay (without slippage)
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _slippage Slippage in basis points when swapping token by
-    ///     base payment token (not applicable when paying directly with it)
+    ///     base currency (not applicable when paying directly with it)
     function commit(
         uint256 _iroId,
-        address _paymentToken,
+        address _currency,
         uint256 _amountToPay,
         uint256 _amountToPurchase,
         uint16 _slippage
     ) external payable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
-        WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_paymentToken];
-        require(_paymentToken == finance.baseCurrency || whitelistedCurrency_.whitelisted, "Currency not allowed");
+        WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_currency];
+        require(_currency == finance.baseCurrency || whitelistedCurrency_.whitelisted, "Currency not allowed");
         require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
         require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.hardCap, "Hardcap reached");
-        if (_paymentToken != address(0) && msg.value > 0) {
+        if (_currency != address(0) && msg.value > 0) {
             IROFinance.sendEther(msg.sender, msg.value);
         }
 
         uint256 valueInBase = finance.processPayment(
             iro.unitPrice,
-            _paymentToken,
+            _currency,
             _amountToPay,
             _amountToPurchase,
             _slippage,
@@ -272,11 +275,14 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         commits[_iroId][msg.sender] += _amountToPurchase;
         _iros[_iroId].totalFunding += valueInBase;
 
-        emit Commit(_iroId, msg.sender, _paymentToken, valueInBase, _amountToPurchase);
+        emit Commit(_iroId, msg.sender, _currency, valueInBase, _amountToPurchase);
     }
 
+    /// @dev Enable receiving ETH
+    receive() external payable {}
+
     /// @notice Claim purchased tokens when IRO successful or
-    ///     get back commit amount in base payment tokens if IRO failed
+    ///     get back commit amount in base currency if IRO failed
     /// @param _iroId ID of the IRO
     /// @param _to Address to send the claimed tokens
     function claim(uint256 _iroId, address _to) external {
@@ -320,12 +326,12 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         (
             uint256 listingOwnerAmount,
             uint256 treasuryAmount,
-            uint256 realEstateFundsAmount,
-            bool realEstateFundsSet
+            uint256 realEstateReservesAmount,
+            bool realEstateReservesSet
         ) = finance.distributeFunds(
                 iro.listingOwner,
                 treasury,
-                realEstateFunds,
+                realEstateReserves,
                 _retrieveRealEstateId(_iroId),
                 iro.totalFunding,
                 iro.listingOwnerFee,
@@ -335,14 +341,14 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         emit FundsWithdrawn(
             _iroId,
             msg.sender,
-            realEstateFundsSet,
+            realEstateReservesSet,
             listingOwnerAmount,
             treasuryAmount,
-            realEstateFundsAmount
+            realEstateReservesAmount
         );
     }
 
-    /// @dev Whitelist payment currencies
+    /// @dev Whitelist currencies
     /// @param _currency Currency ERC20 address
     /// @param _whitelist Whether to whitelist
     function whitelistCurrency(address _currency, bool _whitelist) external onlyOwner {
@@ -361,31 +367,50 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /// @notice Get the expected price of an IRO purchase (without slippage)
+    /// @notice Takes into account swap fees
     /// @param _iroId ID of the IRO
-    /// @param _paymentToken Payment token address
+    /// @param _currency Currency address
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     function expectedPrice(
         uint256 _iroId,
-        address _paymentToken,
+        address _currency,
         uint256 _amountToPurchase
     ) external view returns (uint256) {
+        WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_currency];
+        require(whitelistedCurrency_.whitelisted, "Currency is not available");
         IRO memory iro = getIRO(_iroId);
-        return finance.expectedPrice(iro.unitPrice, _paymentToken, _amountToPurchase);
+        return
+            finance.expectedPrice(
+                iro.unitPrice,
+                _currency,
+                _amountToPurchase,
+                whitelistedCurrency_.relativePath.length + 2
+            );
     }
 
     /// @notice Get the price with slippage
+    /// @notice Takes into account swap fees
     /// @param _iroId ID of the IRO
-    /// @param _paymentToken Payment token address
+    /// @param _currency Currency address
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _slippage Swap slippage in basis points
     function priceWithSlippage(
         uint256 _iroId,
-        address _paymentToken,
+        address _currency,
         uint256 _amountToPurchase,
         uint16 _slippage
     ) external view returns (uint256) {
+        WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_currency];
+        require(whitelistedCurrency_.whitelisted, "Currency is not available");
         IRO memory iro = getIRO(_iroId);
-        return finance.priceWithSlippage(iro.unitPrice, _paymentToken, _amountToPurchase, _slippage);
+        return
+            finance.priceWithSlippage(
+                iro.unitPrice,
+                _currency,
+                _amountToPurchase,
+                _slippage,
+                whitelistedCurrency_.relativePath.length + 2
+            );
     }
 
     /// @notice Get the amount of remaining IRO tokens
