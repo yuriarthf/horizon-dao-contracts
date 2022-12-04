@@ -5,8 +5,8 @@ import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { SingleApprovableERC1155 } from "../token/SingleApprovableERC1155.sol";
 
 contract SingleApprovableERC1155Mock is SingleApprovableERC1155 {
-    address msgSenderMock;
-    bool mockMsgSender;
+    address private msgSenderMock;
+    bool private mockMsgSender;
 
     constructor(string memory _uri) ERC1155(_uri) {}
 
@@ -24,5 +24,13 @@ contract SingleApprovableERC1155Mock is SingleApprovableERC1155 {
 
     function setMsgSenderMock(address _mockedAddress) external {
         msgSenderMock = _mockedAddress;
+    }
+
+    function setURI(uint256 _tokenId, string memory _tokenURI) external virtual {
+        _setURI(_tokenId, _tokenURI);
+    }
+
+    function setBaseURI(string memory _baseURI) external virtual {
+        _setBaseURI(_baseURI);
     }
 }
