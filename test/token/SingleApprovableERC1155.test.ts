@@ -332,6 +332,7 @@ describe("SingleApprovableERC1155 Unit Tests", () => {
       await singleApprovableToken.connect(admin).setBaseURI(BASE_URI);
     });
 
+    // set token URI
     it("setURI: should return encodePacked(_baseURI, tokenURI) ", async () => {
       tokenURI = "nft_1";
       tokenId = BigNumber.from("1");
