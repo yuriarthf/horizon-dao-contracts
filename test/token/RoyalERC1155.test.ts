@@ -102,11 +102,10 @@ describe("RoyalERC1155 Unit Tests", () => {
     });
 
     it("setDefaultRoyalty: should revert if invalid address", async () => {
-      const invalidAddress = "0x0000000000000000000000000000000000000000";
       // should revert with "ERC2981: invalid receiver" message
-      await expect(royalToken.connect(admin).setDefaultRoyalty(invalidAddress, FEE_DENOMINATOR)).to.be.revertedWith(
-        "ERC2981: invalid receiver",
-      );
+      await expect(
+        royalToken.connect(admin).setDefaultRoyalty(ethers.constants.AddressZero, FEE_DENOMINATOR),
+      ).to.be.revertedWith("ERC2981: invalid receiver");
     });
 
     it("setDefaultRoyalty: should emit 'SetDefaultRoyalties' on success", async () => {
@@ -142,11 +141,10 @@ describe("RoyalERC1155 Unit Tests", () => {
     });
 
     it("setTokenRoyalty: should revert if invalid address", async () => {
-      const invalidAddress = "0x0000000000000000000000000000000000000000";
       // should revert with "ERC2981: invalid receiver" message
-      await expect(royalToken.connect(admin).setDefaultRoyalty(invalidAddress, ROYALTY_FRACTION)).to.be.revertedWith(
-        "ERC2981: invalid receiver",
-      );
+      await expect(
+        royalToken.connect(admin).setDefaultRoyalty(ethers.constants.AddressZero, ROYALTY_FRACTION),
+      ).to.be.revertedWith("ERC2981: invalid receiver");
     });
 
     it("setTokenRoyalty: should emit 'SetDefaultRoyalties' on success", async () => {
