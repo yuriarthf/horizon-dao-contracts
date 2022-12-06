@@ -25,7 +25,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   });
 
   // deploy InitialRealEstateOffering proxy
-  const constructorArgs = Object.values(realEstateErc1155Args(hre.network.name));
+  const constructorArgs = Object.values(await realEstateErc1155Args(hre.network.name));
   const deployment = await hre.deployments.get("RealEstateERC1155_Impl");
   const iface = new hre.ethers.utils.Interface(deployment.abi);
   const initData = iface.encodeFunctionData("initialize", constructorArgs);
