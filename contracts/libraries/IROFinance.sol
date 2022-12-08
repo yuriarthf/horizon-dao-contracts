@@ -66,6 +66,7 @@ library IROFinance {
     /// @param _amountToPurchase Amount of tokens to purchase
     /// @param _slippage Swap slippage in basis points
     /// @param _relativePath Swap path relative to the origin and end currency
+    /// @param _baseCurrency Address of the token used as the base precification currency
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
@@ -73,10 +74,11 @@ library IROFinance {
         uint256 _amountToPay,
         uint256 _amountToPurchase,
         uint16 _slippage,
-        address[] memory _relativePath
+        address[] memory _relativePath,
+        address _baseCurrency
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
-        if (_paymentToken == _finance.baseCurrency) {
+        if (_paymentToken == _baseCurrency) {
             require(valueInBase == _amountToPay, "Invalid amount");
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
@@ -88,7 +90,7 @@ library IROFinance {
             for (uint256 i = 0; i < _relativePath.length; i++) {
                 path[i + 1] = _relativePath[i];
             }
-            path[path.length - 1] = _finance.baseCurrency;
+            path[path.length - 1] = _baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
                 valueInBase,
                 valueWithSlippage,
@@ -107,7 +109,7 @@ library IROFinance {
             for (uint256 i = 0; i < _relativePath.length; i++) {
                 path[i + 1] = _relativePath[i];
             }
-            path[path.length - 1] = _finance.baseCurrency;
+            path[path.length - 1] = _baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
                 valueInBase,
                 path,
@@ -126,19 +128,21 @@ library IROFinance {
     /// @param _currency Payment token address
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _pathLength Swap path length
+    /// @param _baseCurrency Address of the token used as the base precification currency
     function expectedPrice(
         Finance memory _finance,
         uint256 _unitPrice,
         address _currency,
         uint256 _amountToPurchase,
-        uint256 _pathLength
+        uint256 _pathLength,
+        address _baseCurrency
     ) internal view returns (uint256) {
         uint256 valueInBase = _amountToPurchase * _unitPrice;
-        if (_currency == _finance.baseCurrency) {
+        if (_currency == _baseCurrency) {
             return valueInBase;
         }
         return
-            (convertBaseToPaymentToken(_finance, valueInBase, _currency) *
+            (convertBaseToPaymentToken(_finance, valueInBase, _currency, _baseCurrency) *
                 (FEE_DENOMINATOR + (_pathLength - 1) * SWAP_FEE)) / FEE_DENOMINATOR;
     }
 
@@ -149,16 +153,25 @@ library IROFinance {
     /// @param _amountToPurchase Amount of IRO tokens to purchase
     /// @param _slippage Swap slippage in basis points
     /// @param _pathLength Swap path length
+    /// @param _baseCurrency Address of the token used as the base precification currency
     function priceWithSlippage(
         Finance memory _finance,
         uint256 _unitPrice,
         address _paymentToken,
         uint256 _amountToPurchase,
         uint16 _slippage,
-        uint256 _pathLength
+        uint256 _pathLength,
+        address _baseCurrency
     ) internal view returns (uint256) {
-        uint256 expectedPrice_ = expectedPrice(_finance, _unitPrice, _paymentToken, _amountToPurchase, _pathLength);
-        if (_paymentToken == _finance.baseCurrency) return expectedPrice_;
+        uint256 expectedPrice_ = expectedPrice(
+            _finance,
+            _unitPrice,
+            _paymentToken,
+            _amountToPurchase,
+            _pathLength,
+            _baseCurrency
+        );
+        if (_paymentToken == _baseCurrency) return expectedPrice_;
         return (expectedPrice_ * (SLIPPAGE_DENOMINATOR + _slippage)) / SLIPPAGE_DENOMINATOR;
     }
 
@@ -177,7 +190,6 @@ library IROFinance {
     }
 
     /// @dev Distribute funds during IRO withdrawal
-    /// @param _finance Finance structure
     /// @param _listingOwner The listing owner of the IRO
     /// @param _treasury Treasury contract address
     /// @param _realEstateReserves RealEstateReserves contract address
@@ -185,15 +197,16 @@ library IROFinance {
     /// @param _totalFunding Total funds from the IRO
     /// @param _listingOwnerFee Fee requested by the listing owner
     /// @param _treasuryFee Treasury fee
+    /// @param _baseCurrency Address of the token used as the base precification currency
     function distributeFunds(
-        Finance memory _finance,
         address _listingOwner,
         address _treasury,
         IRealEstateReserves _realEstateReserves,
         uint256 _realEstateId,
         uint256 _totalFunding,
         uint256 _listingOwnerFee,
-        uint256 _treasuryFee
+        uint256 _treasuryFee,
+        address _baseCurrency
     )
         internal
         returns (
@@ -205,25 +218,22 @@ library IROFinance {
     {
         if (_listingOwnerFee > 0) {
             listingOwnerAmount = (_listingOwnerFee * _totalFunding) / FEE_DENOMINATOR;
-            sendErc20(_listingOwner, listingOwnerAmount, _finance.baseCurrency);
+            sendErc20(_listingOwner, listingOwnerAmount, _baseCurrency);
         }
         treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
         realEstateReservesAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
         if (address(_realEstateReserves) != address(0)) {
             realEstateReservesSet = true;
             if (treasuryAmount > 0) {
-                sendErc20(_treasury, treasuryAmount, _finance.baseCurrency);
+                sendErc20(_treasury, treasuryAmount, _baseCurrency);
             }
 
             if (realEstateReservesAmount > 0) {
-                IERC20Extended(_finance.baseCurrency).safeApprove(
-                    address(_realEstateReserves),
-                    realEstateReservesAmount
-                );
-                _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _finance.baseCurrency);
+                IERC20Extended(_baseCurrency).safeApprove(address(_realEstateReserves), realEstateReservesAmount);
+                _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _baseCurrency);
             }
         } else {
-            sendErc20(_treasury, _totalFunding - listingOwnerAmount, _finance.baseCurrency);
+            sendErc20(_treasury, _totalFunding - listingOwnerAmount, _baseCurrency);
         }
     }
 
@@ -251,9 +261,10 @@ library IROFinance {
     function convertBaseToPaymentToken(
         Finance memory _finance,
         uint256 _valueInBase,
-        address _paymentToken
+        address _paymentToken,
+        address _baseCurrency
     ) internal view returns (uint256) {
-        uint256 paymentTokenPriceInBase = _finance.priceOracle.getPrice(_paymentToken, _finance.baseCurrency);
+        uint256 paymentTokenPriceInBase = _finance.priceOracle.getPrice(_paymentToken, _baseCurrency);
 
         return (_valueInBase * 10 ** uint256(_getTokenDecimals(_paymentToken))) / paymentTokenPriceInBase;
     }

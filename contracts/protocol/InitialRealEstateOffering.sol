@@ -287,7 +287,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             _amountToPay,
             _amountToPurchase,
             _slippage,
-            whitelistedCurrency_.relativePath
+            whitelistedCurrency_.relativePath,
+            iro.baseCurrency
         );
 
         commits[_iroId][msg.sender] += _amountToPurchase;
@@ -346,14 +347,15 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             uint256 treasuryAmount,
             uint256 realEstateReservesAmount,
             bool realEstateReservesSet
-        ) = finance.distributeFunds(
+        ) = IROFinance.distributeFunds(
                 iro.listingOwner,
                 treasury,
                 realEstateReserves,
                 _retrieveRealEstateId(_iroId),
                 iro.totalFunding,
                 iro.listingOwnerFee,
-                iro.treasuryFee
+                iro.treasuryFee,
+                iro.baseCurrency
             );
         _fundsWithdrawn.set(_iroId);
         emit FundsWithdrawn(
@@ -403,7 +405,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
                 iro.unitPrice,
                 _currency,
                 _amountToPurchase,
-                whitelistedCurrency_.relativePath.length + 2
+                whitelistedCurrency_.relativePath.length + 2,
+                iro.baseCurrency
             );
     }
 
@@ -428,7 +431,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
                 _currency,
                 _amountToPurchase,
                 _slippage,
-                whitelistedCurrency_.relativePath.length + 2
+                whitelistedCurrency_.relativePath.length + 2,
+                iro.baseCurrency
             );
     }
 
