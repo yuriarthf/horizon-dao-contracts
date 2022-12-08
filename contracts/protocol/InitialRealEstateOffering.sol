@@ -41,6 +41,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 hardCap;
         uint256 unitPrice;
         uint256 totalFunding;
+        address baseCurrency;
     }
 
     struct WhitelistedCurrency {
@@ -86,6 +87,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     BitMapsUpgradeable.BitMap private _realEstateIdSet;
 
     /// @dev Emitted when a new IRO is created
+    /// TODO: maybe add baseCurrency field, so it can be changed without 'breaking'
+    ///     the previous IROs
     event CreateIRO(
         uint256 indexed _id,
         address indexed _listingOwner,
@@ -144,7 +147,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _baseCurrency Base token used to precify the IRO tokens
     /// @param _priceFeedRegistry Chainlink Price Feed Registry address
     /// @param _swapRouter Uniswap or Sushiswap swap router
-    /// @param _weth WETH contract address
     function initialize(
         address _owner,
         address _realEstateNft,
@@ -152,29 +154,44 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         address _realEstateReserves,
         address _baseCurrency,
         address _priceFeedRegistry,
-        address _swapRouter,
-        address _weth
+        address _swapRouter
     ) external initializer {
         require(_realEstateNft != address(0), "!_realEstateNft");
         require(_treasury != address(0), "!_treasury");
         require(_baseCurrency != address(0), "!_baseCurrency");
         require(_priceFeedRegistry != address(0), "!_priceFeedRegistry");
         require(_swapRouter != address(0), "!_swapRouter");
-        require(_weth != address(0), "!_weth");
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
         realEstateReserves = IRealEstateReserves(_realEstateReserves);
-        finance.initializeFinance(_swapRouter, _priceFeedRegistry, _weth, _baseCurrency);
-        whitelistedCurrency[address(0)].whitelisted = true;
+        finance.initializeFinance(_swapRouter, _priceFeedRegistry, _baseCurrency);
+        whitelistedCurrency[_baseCurrency].whitelisted = true;
         _transferOwnership(_owner);
     }
 
     /// @dev Set a new base price token
     /// @param _baseCurrency Base price token address (ERC20)
+    /// TODO: Require baseCurrency to be whitelisted
     function setBaseCurrency(address _baseCurrency) external onlyOwner {
         require(_baseCurrency != address(0), "!_baseCurrency");
         finance.baseCurrency = _baseCurrency;
+        whitelistedCurrency[_baseCurrency].whitelisted = true;
         emit SetBaseCurrency(msg.sender, _baseCurrency);
+    }
+
+    /// @notice get base currency address
+    function baseCurrency() external view returns (address) {
+        return finance.baseCurrency;
+    }
+
+    /// @notice get price oracle address
+    function priceOracle() external view returns (address) {
+        return address(finance.priceOracle);
+    }
+
+    /// @notice get swap router address
+    function swapRouter() external view returns (address) {
+        return address(finance.swapRouter);
     }
 
     /// @dev Set new treasury
@@ -231,7 +248,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             softCap: _softCap,
             hardCap: _hardCap,
             unitPrice: _unitPrice,
-            totalFunding: 0
+            totalFunding: 0,
+            baseCurrency: finance.baseCurrency
         });
         _nextAvailableId.increment();
 
@@ -353,6 +371,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _whitelist Whether to whitelist
     function whitelistCurrency(address _currency, bool _whitelist) external onlyOwner {
         require(_currency != address(0), "!invalid address");
+        require(_currency != finance.baseCurrency, "baseCurrency");
         whitelistedCurrency[_currency].whitelisted = _whitelist;
         emit WhitelistCurrency(msg.sender, _currency, _whitelist);
     }

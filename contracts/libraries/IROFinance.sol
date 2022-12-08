@@ -39,7 +39,6 @@ library IROFinance {
     struct Finance {
         IUniswapV2Router01 swapRouter;
         IPriceOracle priceOracle;
-        address weth;
         address baseCurrency;
     }
 
@@ -47,18 +46,15 @@ library IROFinance {
     /// @param _finance Finance structure
     /// @param _swapRouter Address of the Uniswap/Sushiswap router used to swap tokens
     /// @param _priceOracle Price Oracle address
-    /// @param _weth WETH contract address
     /// @param _baseCurrency Address of the token used as the base precification currency
     function initializeFinance(
         Finance storage _finance,
         address _swapRouter,
         address _priceOracle,
-        address _weth,
         address _baseCurrency
     ) internal {
         _finance.swapRouter = IUniswapV2Router01(_swapRouter);
         _finance.priceOracle = IPriceOracle(_priceOracle);
-        _finance.weth = _weth;
         _finance.baseCurrency = _baseCurrency;
     }
 
@@ -107,7 +103,7 @@ library IROFinance {
             uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
             require(msg.value >= valueWithSlippage, "Not enough ethers sent");
             address[] memory path = new address[](_relativePath.length + 2);
-            path[0] = _finance.weth;
+            path[0] = _finance.swapRouter.WETH();
             for (uint256 i = 0; i < _relativePath.length; i++) {
                 path[i + 1] = _relativePath[i];
             }
@@ -258,9 +254,8 @@ library IROFinance {
         address _paymentToken
     ) internal view returns (uint256) {
         uint256 paymentTokenPriceInBase = _finance.priceOracle.getPrice(_paymentToken, _finance.baseCurrency);
-        uint8 paymentTokenDecimals = IERC20Extended(_paymentToken).decimals();
 
-        return (_valueInBase * 10 ** uint256(paymentTokenDecimals)) / paymentTokenPriceInBase;
+        return (_valueInBase * 10 ** uint256(_getTokenDecimals(_paymentToken))) / paymentTokenPriceInBase;
     }
 
     /// @dev Get the number of decimals of a token

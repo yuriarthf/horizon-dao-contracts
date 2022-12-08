@@ -10,7 +10,7 @@ import { Address } from "../../test/types";
 
 /*************** Common ***************/
 // Deployment owner
-export const deploymentOwner = async () => {
+export const getDeployer = async () => {
   return (await hre.ethers.getSigners())[0];
 };
 
@@ -100,7 +100,7 @@ export const skyErc20Args = {
 export async function realEstateErc1155Args(network: string) {
   return {
     baseUri: "", // Base URI for the offchain NFT metadata
-    admin: await deploymentOwner(), // Address with contract administration privileges
+    admin: (await getDeployer()).address, // Address with contract administration privileges
     owner: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // EOA to be used as OpenSea collection admin
     yieldCurrency: usdt[network], // Currency used to pay yields
   };
@@ -109,9 +109,11 @@ export async function realEstateErc1155Args(network: string) {
 /*************** PriceOracle ***************/
 export async function priceOracleArgs() {
   return {
-    owner: await deploymentOwner(),
+    owner: (await getDeployer()).address,
   };
 }
+
+// Price Oracle feeds
 export function priceOracleFeeds(network: string) {
   return {
     mainnet: {},
@@ -143,7 +145,7 @@ export function priceOracleFeeds(network: string) {
 /*************** InitialRealEstateOffering ***************/
 export async function initialRealEstateOfferingArgs(network: string) {
   return {
-    owner: horizonMultisig[network],
+    owner: (await getDeployer()).address,
     realEstateNft: await realEstateNft(),
     treasury: treasury[network],
     /* realEstateReserves: realEstateReserves[network], */
@@ -153,4 +155,17 @@ export async function initialRealEstateOfferingArgs(network: string) {
     swapRouter: swapRouter[network],
     weth: weth[network],
   };
+}
+
+// whitelisted tokens
+export function whitelistedTokens(network: string) {
+  return {
+    mainnet: {},
+    goerli: {
+      wbtc_usdt: "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
+      eth_usdt: "0x0000000000000000000000000000000000000000",
+      dai_usdt: "0x73967c6a0904aA032C103b4104747E88c566B1A2",
+      usdc_usdt: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    },
+  }[network];
 }
