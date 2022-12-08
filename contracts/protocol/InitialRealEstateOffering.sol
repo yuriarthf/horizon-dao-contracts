@@ -87,8 +87,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     BitMapsUpgradeable.BitMap private _realEstateIdSet;
 
     /// @dev Emitted when a new IRO is created
-    /// TODO: maybe add baseCurrency field, so it can be changed without 'breaking'
-    ///     the previous IROs
     event CreateIRO(
         uint256 indexed _id,
         address indexed _listingOwner,
@@ -126,9 +124,14 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Emitted when the currency relative path is updated
     event PathUpdated(address indexed _by, address indexed _currency);
 
+    /// @dev Emitted when the Treasury contract is set
     event SetTreasury(address indexed _by, address indexed _treasury);
 
+    /// @dev Emitted when the RealEstateReserves contract is set
     event SetRealEstateReserves(address indexed _by, address indexed _realEstateReserves);
+
+    /// @dev Emitted when a new real estate token ID is created
+    event RealEstateCreated(uint256 indexed _iroId, uint256 indexed _realEstateId);
 
     /// @dev Emitted when funds from an IRO are withdrawn
     event FundsWithdrawn(
@@ -490,6 +493,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             _realEstateId = realEstateNft.nextRealEstateId();
             realEstateId[_iroId] = _realEstateId;
             _realEstateIdSet.set(_iroId);
+            emit RealEstateCreated(_iroId, _realEstateId);
         } else {
             _realEstateId = realEstateId[_iroId];
         }
