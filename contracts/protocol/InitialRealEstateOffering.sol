@@ -234,8 +234,10 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(_listingOwnerShare <= IROFinance.SHARE_DENOMINATOR, "Invalid owner share");
-        require(_treasuryFee <= IROFinance.FEE_DENOMINATOR, "Invalid treasury fee");
+        require(
+            _listingOwnerShare <= IROFinance.DENOMINATOR && _treasuryFee <= IROFinance.DENOMINATOR,
+            "Invalid basis point"
+        );
         require((_hardCap - _softCap) % _unitPrice == 0, "Caps should be multiples of unitPrice");
 
         uint256 currentId = iroLength();
@@ -276,7 +278,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_currency];
         require(_currency == finance.baseCurrency || whitelistedCurrency_.whitelisted, "Currency not allowed");
-        require(_slippage <= IROFinance.SLIPPAGE_DENOMINATOR, "Invalid _slippage");
+        require(_slippage <= IROFinance.DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
         require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.hardCap, "Hardcap reached");
@@ -453,19 +455,9 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         return _getStatus(iro);
     }
 
-    /// @notice Check slippage denominator
-    function slippageDenominator() external pure returns (uint16) {
-        return IROFinance.SLIPPAGE_DENOMINATOR;
-    }
-
-    /// @notice Check fee denominator
-    function feeDenominator() external pure returns (uint16) {
-        return IROFinance.FEE_DENOMINATOR;
-    }
-
-    /// @notice Check share denominator
-    function shareDenominator() external pure returns (uint16) {
-        return IROFinance.SHARE_DENOMINATOR;
+    /// @notice Denominator used for basis points divisions
+    function denominator() external pure returns (uint16) {
+        return IROFinance.DENOMINATOR;
     }
 
     /// @notice Get IRO

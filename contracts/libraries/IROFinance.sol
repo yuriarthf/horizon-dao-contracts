@@ -22,14 +22,8 @@ library IROFinance {
     /// @dev Number of decimals of ETH
     uint8 public constant ETH_DECIMALS = 18;
 
-    /// @dev The denominator and maximum value for slippage
-    uint16 public constant SLIPPAGE_DENOMINATOR = 10000;
-
-    /// @dev The denominator and maximum value for fee
-    uint16 public constant FEE_DENOMINATOR = 10000;
-
-    /// @dev The denominator and maximum value for share
-    uint16 public constant SHARE_DENOMINATOR = 10000;
+    /// @dev Denominator used for basis point division
+    uint16 public constant DENOMINATOR = 10000;
 
     /// @dev The swap fee in basis points (0.3%)
     uint16 public constant SWAP_FEE = 30;
@@ -82,7 +76,7 @@ library IROFinance {
             require(valueInBase == _amountToPay, "Invalid amount");
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
-            uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
+            uint256 valueWithSlippage = (_amountToPay * DENOMINATOR + _slippage) / DENOMINATOR;
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueWithSlippage);
             IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
             address[] memory path = new address[](_relativePath.length + 2);
@@ -102,7 +96,7 @@ library IROFinance {
                 sendErc20(msg.sender, valueWithSlippage - amounts[0], _paymentToken);
             }
         } else {
-            uint256 valueWithSlippage = (_amountToPay * SLIPPAGE_DENOMINATOR + _slippage) / SLIPPAGE_DENOMINATOR;
+            uint256 valueWithSlippage = (_amountToPay * DENOMINATOR + _slippage) / DENOMINATOR;
             require(msg.value >= valueWithSlippage, "Not enough ethers sent");
             address[] memory path = new address[](_relativePath.length + 2);
             path[0] = _finance.swapRouter.WETH();
@@ -143,7 +137,7 @@ library IROFinance {
         }
         return
             (convertBaseToPaymentToken(_finance, valueInBase, _currency, _baseCurrency) *
-                (FEE_DENOMINATOR + (_pathLength - 1) * SWAP_FEE)) / FEE_DENOMINATOR;
+                (DENOMINATOR + (_pathLength - 1) * SWAP_FEE)) / DENOMINATOR;
     }
 
     /// @notice Get the price with slippage
@@ -172,7 +166,7 @@ library IROFinance {
             _baseCurrency
         );
         if (_paymentToken == _baseCurrency) return expectedPrice_;
-        return (expectedPrice_ * (SLIPPAGE_DENOMINATOR + _slippage)) / SLIPPAGE_DENOMINATOR;
+        return (expectedPrice_ * (DENOMINATOR + _slippage)) / DENOMINATOR;
     }
 
     /// @dev Convert token share to amount
@@ -186,7 +180,7 @@ library IROFinance {
         uint16 _share
     ) internal pure returns (uint256 amount) {
         uint256 totalPurchased = _totalFunding / _unitPrice;
-        amount = (totalPurchased * _share) / (IROFinance.SHARE_DENOMINATOR - _share);
+        amount = (totalPurchased * _share) / (IROFinance.DENOMINATOR - _share);
     }
 
     /// @dev Distribute funds during IRO withdrawal
@@ -217,10 +211,10 @@ library IROFinance {
         )
     {
         if (_listingOwnerFee > 0) {
-            listingOwnerAmount = (_listingOwnerFee * _totalFunding) / FEE_DENOMINATOR;
+            listingOwnerAmount = (_listingOwnerFee * _totalFunding) / DENOMINATOR;
             sendErc20(_listingOwner, listingOwnerAmount, _baseCurrency);
         }
-        treasuryAmount = (_treasuryFee * _totalFunding) / FEE_DENOMINATOR;
+        treasuryAmount = (_treasuryFee * _totalFunding) / DENOMINATOR;
         realEstateReservesAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
         if (address(_realEstateReserves) != address(0)) {
             realEstateReservesSet = true;
