@@ -280,7 +280,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             iro.baseCurrency
         );
 
-        commits[_iroId][msg.sender] += _amountToPurchase;
+        commits[_iroId][msg.sender] += valueInBase;
         _iros[_iroId].totalFunding += valueInBase;
 
         emit Commit(_iroId, msg.sender, _currency, valueInBase, _amountToPurchase);
