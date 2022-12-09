@@ -174,27 +174,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Set a new base price token
     /// @param _baseCurrency Base price token address (ERC20)
-    /// TODO: Require baseCurrency to be whitelisted
     function setBaseCurrency(address _baseCurrency) external onlyOwner {
         require(_baseCurrency != address(0), "!_baseCurrency");
         finance.baseCurrency = _baseCurrency;
         whitelistedCurrency[_baseCurrency].whitelisted = true;
         emit SetBaseCurrency(msg.sender, _baseCurrency);
-    }
-
-    /// @notice get base currency address
-    function baseCurrency() external view returns (address) {
-        return finance.baseCurrency;
-    }
-
-    /// @notice get price oracle address
-    function priceOracle() external view returns (address) {
-        return address(finance.priceOracle);
-    }
-
-    /// @notice get swap router address
-    function swapRouter() external view returns (address) {
-        return address(finance.swapRouter);
     }
 
     /// @dev Set new treasury
