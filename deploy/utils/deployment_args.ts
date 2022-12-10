@@ -32,6 +32,12 @@ const usdt: { [network: string]: string } = {
   goerli: "0x509Ee0d083DdF8AC028f2a56731412edD63223B9",
 };
 
+// USDC addresses
+const usdc: { [network: string]: string } = {
+  mainnet: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  goerli: "0xD87Ba7A50B2E7E660f678A895E4B72E7CB4CCd9C",
+};
+
 // RealEstateNFT
 const realEstateNft = async () => (await hre.deployments.get("RealEstateERC1155_Proxy")).address;
 
@@ -56,12 +62,6 @@ const priceFeedRegistry = async () => (await hre.deployments.get("PriceOracle"))
 const swapRouter: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
-};
-
-// RealEstateFunds
-const weth: { [network: string]: string } = {
-  mainnet: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-  goerli: "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6",
 };
 
 /*************** PioneerERC1155 ***************/
@@ -138,6 +138,26 @@ export function priceOracleFeeds(network: string) {
         usdt[network],
         "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7",
       ],
+      wbtc_usdc: [
+        "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
+        usdc[network],
+        "0x779877A7B0D9E8603169DdbD7836e478b4624789",
+      ],
+      eth_usdc: [
+        "0x0000000000000000000000000000000000000000",
+        usdc[network],
+        "0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e",
+      ],
+      dai_usdc: [
+        "0x73967c6a0904aA032C103b4104747E88c566B1A2",
+        usdc[network],
+        "0x0d79df66BE487753B02D015Fb622DED7f0E9798d",
+      ],
+      usdc_usdc: [
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        usdc[network],
+        "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7",
+      ],
     },
   }[network];
 }
@@ -153,7 +173,6 @@ export async function initialRealEstateOfferingArgs(network: string) {
     baseCurrency: usdt[network],
     priceFeedRegistry: await priceFeedRegistry(),
     swapRouter: swapRouter[network],
-    weth: weth[network],
   };
 }
 
@@ -162,10 +181,11 @@ export function whitelistedTokens(network: string) {
   return {
     mainnet: {},
     goerli: {
-      wbtc_usdt: "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
-      eth_usdt: "0x0000000000000000000000000000000000000000",
-      dai_usdt: "0x73967c6a0904aA032C103b4104747E88c566B1A2",
-      usdc_usdt: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      wbtc: "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
+      eth: "0x0000000000000000000000000000000000000000",
+      dai: "0x73967c6a0904aA032C103b4104747E88c566B1A2",
+      usdc: usdc[network],
+      usdt: usdt[network],
     },
   }[network];
 }

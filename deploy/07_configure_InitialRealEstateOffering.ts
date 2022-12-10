@@ -1,4 +1,4 @@
-// 06_configure_PriceOracle.ts: Configure PriceOracle contract
+// 07_configure_InitialRealEstateOffering.ts: Configure InitialRealEstateOffering contract
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -13,8 +13,10 @@ import { getDeployer, horizonMultisig, whitelistedTokens } from "./utils/deploym
 async function initTokenWhitelist(iro: InitialRealEstateOffering, whitelist: ReturnType<typeof whitelistedTokens>) {
   const tokens = Object.values(<{ [s: string]: string }>whitelist);
   const txs = [];
+  const { baseCurrency } = await iro.finance();
   for (const token of tokens) {
-    txs.push(await iro.whitelistCurrency(token, true));
+    if (token === baseCurrency) continue;
+    txs.push((await iro.whitelistCurrency(token, true)).wait());
   }
   await Promise.all(txs);
 }
@@ -22,7 +24,7 @@ async function initTokenWhitelist(iro: InitialRealEstateOffering, whitelist: Ret
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get IRO Proxy address and ABI
   const iroProxyAddress = (await hre.deployments.get("InitialRealEstateOffering_Proxy")).address;
-  const iroAbi = (await hre.deployments.get("InitialRealEstateOffering_Impl")).address;
+  const iroAbi = (await hre.deployments.get("InitialRealEstateOffering_Impl")).abi;
 
   // whitelist some tokens
   const iroOwner = await getDeployer();

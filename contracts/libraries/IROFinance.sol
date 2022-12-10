@@ -165,12 +165,13 @@ library IROFinance {
         return (expectedPrice_ * (DENOMINATOR + _slippage)) / DENOMINATOR;
     }
 
-    /// @dev Convert token share to amount
+    /// @dev Calculate listing owner amount
+    /// @dev Should be less than 100% or it will overflows
     /// @param _totalFunding Total IRO funding
     /// @param _unitPrice IRO token unit price
     /// @param _share Token share
     /// @return amount Amount of tokens
-    function shareToAmount(
+    function listingOwnerAmount(
         uint256 _totalFunding,
         uint256 _unitPrice,
         uint16 _share
@@ -200,18 +201,18 @@ library IROFinance {
     )
         internal
         returns (
-            uint256 listingOwnerAmount,
+            uint256 listingOwnerAmount_,
             uint256 treasuryAmount,
             uint256 realEstateReservesAmount,
             bool realEstateReservesSet
         )
     {
         if (_listingOwnerFee > 0) {
-            listingOwnerAmount = (_listingOwnerFee * _totalFunding) / DENOMINATOR;
-            sendErc20(_listingOwner, listingOwnerAmount, _baseCurrency);
+            listingOwnerAmount_ = (_listingOwnerFee * _totalFunding) / DENOMINATOR;
+            sendErc20(_listingOwner, listingOwnerAmount_, _baseCurrency);
         }
         treasuryAmount = (_treasuryFee * _totalFunding) / DENOMINATOR;
-        realEstateReservesAmount = _totalFunding - (listingOwnerAmount + treasuryAmount);
+        realEstateReservesAmount = _totalFunding - (listingOwnerAmount_ + treasuryAmount);
         if (address(_realEstateReserves) != address(0)) {
             realEstateReservesSet = true;
             if (treasuryAmount > 0) {
@@ -223,7 +224,7 @@ library IROFinance {
                 _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _baseCurrency);
             }
         } else {
-            sendErc20(_treasury, _totalFunding - listingOwnerAmount, _baseCurrency);
+            sendErc20(_treasury, _totalFunding - listingOwnerAmount_, _baseCurrency);
         }
     }
 

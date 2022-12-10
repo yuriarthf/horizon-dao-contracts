@@ -14,7 +14,7 @@ async function initPriceFeeds(priceOracle: PriceOracle, feedsForNetwork: ReturnT
   const feeds = Object.values(<{ [s: string]: string[] }>feedsForNetwork);
   const txs = [];
   for (const feed of feeds) {
-    txs.push(await priceOracle.setAggregator(feed[0], feed[1], feed[2]));
+    txs.push((await priceOracle.setAggregator(feed[0], feed[1], feed[2])).wait());
   }
 
   await Promise.all(txs);

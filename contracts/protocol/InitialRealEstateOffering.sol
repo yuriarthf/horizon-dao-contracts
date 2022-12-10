@@ -218,10 +218,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(
-            _listingOwnerShare <= IROFinance.DENOMINATOR && _treasuryFee <= IROFinance.DENOMINATOR,
-            "Invalid basis point"
-        );
+        require(_listingOwnerShare <= IROFinance.DENOMINATOR, "Invalid basis point");
+        require(_treasuryFee + _listingOwnerFee <= IROFinance.DENOMINATOR, "Fees should be less than 100%");
         require((_hardCap - _softCap) % _unitPrice == 0, "Caps should be multiples of unitPrice");
 
         uint256 currentId = iroLength();
@@ -314,7 +312,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(!_listingOwnerClaimed.get(_iroId), "Already claimed");
         require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
         require(iro.listingOwnerShare > 0, "Nothing to claim");
-        uint256 listingOwnerAmount = IROFinance.shareToAmount(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
+        uint256 listingOwnerAmount = IROFinance.listingOwnerAmount(
+            iro.totalFunding,
+            iro.unitPrice,
+            iro.listingOwnerShare
+        );
         realEstateNft.mint(_retrieveRealEstateId(_iroId), _to, listingOwnerAmount);
         _listingOwnerClaimed.set(_iroId);
         emit OwnerTokensClaimed(_iroId, msg.sender, _to, listingOwnerAmount);
@@ -356,7 +358,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _currency Currency ERC20 address
     /// @param _whitelist Whether to whitelist
     function whitelistCurrency(address _currency, bool _whitelist) external onlyOwner {
-        require(_currency != address(0), "!invalid address");
         require(_currency != finance.baseCurrency, "baseCurrency");
         whitelistedCurrency[_currency].whitelisted = _whitelist;
         emit WhitelistCurrency(msg.sender, _currency, _whitelist);
@@ -365,7 +366,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Update relative swap router path of a currency
     /// @param _currency Currency ERC20 address
     /// @param _relativePath Swap relative path
-    function setrelativePath(address _currency, address[] memory _relativePath) external onlyOwner {
+    function setRelativePath(address _currency, address[] memory _relativePath) external onlyOwner {
         require(_currency != address(0), "!invalid address");
         whitelistedCurrency[_currency].relativePath = _relativePath;
         emit PathUpdated(msg.sender, _currency);
