@@ -56,29 +56,26 @@ library IROFinance {
     /// @param _finance Finance structure
     /// @param _unitPrice Unit price of the token
     /// @param _paymentToken The address of the token being used for payment
-    /// @param _amountToPay Expected amount to pay (without slippage)
+    /// @param _priceWithSlippage Expected price with slippage
     /// @param _amountToPurchase Amount of tokens to purchase
-    /// @param _slippage Swap slippage in basis points
     /// @param _relativePath Swap path relative to the origin and end currency
     /// @param _baseCurrency Address of the token used as the base precification currency
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
         address _paymentToken,
-        uint256 _amountToPay,
+        uint256 _priceWithSlippage,
         uint256 _amountToPurchase,
-        uint16 _slippage,
         address[] memory _relativePath,
         address _baseCurrency
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
         if (_paymentToken == _baseCurrency) {
-            require(valueInBase == _amountToPay, "Invalid amount");
+            require(valueInBase <= _priceWithSlippage, "Invalid amount");
             IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
         } else if (_paymentToken != address(0)) {
-            uint256 valueWithSlippage = (_amountToPay * DENOMINATOR + _slippage) / DENOMINATOR;
-            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueWithSlippage);
-            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), valueWithSlippage);
+            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), _priceWithSlippage);
+            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), _priceWithSlippage);
             address[] memory path = new address[](_relativePath.length + 2);
             path[0] = _paymentToken;
             for (uint256 i = 0; i < _relativePath.length; i++) {
@@ -87,24 +84,23 @@ library IROFinance {
             path[path.length - 1] = _baseCurrency;
             uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
                 valueInBase,
-                valueWithSlippage,
+                _priceWithSlippage,
                 path,
                 address(this),
                 block.timestamp
             );
-            if (amounts[0] < valueWithSlippage) {
-                sendErc20(msg.sender, valueWithSlippage - amounts[0], _paymentToken);
+            if (amounts[0] < _priceWithSlippage) {
+                sendErc20(msg.sender, _priceWithSlippage - amounts[0], _paymentToken);
             }
         } else {
-            uint256 valueWithSlippage = (_amountToPay * DENOMINATOR + _slippage) / DENOMINATOR;
-            require(msg.value >= valueWithSlippage, "Not enough ethers sent");
+            require(msg.value >= _priceWithSlippage, "Not enough ethers sent");
             address[] memory path = new address[](_relativePath.length + 2);
             path[0] = _finance.swapRouter.WETH();
             for (uint256 i = 0; i < _relativePath.length; i++) {
                 path[i + 1] = _relativePath[i];
             }
             path[path.length - 1] = _baseCurrency;
-            uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: valueWithSlippage }(
+            uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: _priceWithSlippage }(
                 valueInBase,
                 path,
                 address(this),

@@ -248,21 +248,17 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Commit to an IRO
     /// @param _iroId ID of the IRO
     /// @param _currency Currency address
-    /// @param _amountToPay Expected amount to pay (without slippage)
+    /// @param _priceWithSlippage Expected price with slippage
     /// @param _amountToPurchase Amount of IRO tokens to purchase
-    /// @param _slippage Slippage in basis points when swapping token by
-    ///     base currency (not applicable when paying directly with it)
     function commit(
         uint256 _iroId,
         address _currency,
-        uint256 _amountToPay,
-        uint256 _amountToPurchase,
-        uint16 _slippage
+        uint256 _priceWithSlippage,
+        uint256 _amountToPurchase
     ) external payable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         WhitelistedCurrency memory whitelistedCurrency_ = whitelistedCurrency[_currency];
         require(_currency == finance.baseCurrency || whitelistedCurrency_.whitelisted, "Currency not allowed");
-        require(_slippage <= IROFinance.DENOMINATOR, "Invalid _slippage");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
         require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.hardCap, "Hardcap reached");
@@ -273,9 +269,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 valueInBase = finance.processPayment(
             iro.unitPrice,
             _currency,
-            _amountToPay,
+            _priceWithSlippage,
             _amountToPurchase,
-            _slippage,
             whitelistedCurrency_.relativePath,
             iro.baseCurrency
         );
