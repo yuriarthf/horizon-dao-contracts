@@ -55,7 +55,7 @@ library IROFinance {
     /// @dev Process commit payment
     /// @param _finance Finance structure
     /// @param _unitPrice Unit price of the token
-    /// @param _paymentToken The address of the token being used for payment
+    /// @param _paymentCurrency Payment currency address
     /// @param _priceWithSlippage Expected price with slippage
     /// @param _amountToPurchase Amount of tokens to purchase
     /// @param _relativePath Swap path relative to the origin and end currency
@@ -63,52 +63,28 @@ library IROFinance {
     function processPayment(
         Finance memory _finance,
         uint256 _unitPrice,
-        address _paymentToken,
+        address _paymentCurrency,
         uint256 _priceWithSlippage,
         uint256 _amountToPurchase,
         address[] memory _relativePath,
         address _baseCurrency
     ) internal returns (uint256 valueInBase) {
         valueInBase = _amountToPurchase * _unitPrice;
-        if (_paymentToken == _baseCurrency) {
+        if (_paymentCurrency == _baseCurrency) {
             require(valueInBase <= _priceWithSlippage, "Invalid amount");
-            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), valueInBase);
-        } else if (_paymentToken != address(0)) {
-            IERC20Extended(_paymentToken).safeTransferFrom(msg.sender, address(this), _priceWithSlippage);
-            IERC20Extended(_paymentToken).safeApprove(address(_finance.swapRouter), _priceWithSlippage);
-            address[] memory path = new address[](_relativePath.length + 2);
-            path[0] = _paymentToken;
-            for (uint256 i = 0; i < _relativePath.length; i++) {
-                path[i + 1] = _relativePath[i];
-            }
-            path[path.length - 1] = _baseCurrency;
-            uint256[] memory amounts = _finance.swapRouter.swapTokensForExactTokens(
-                valueInBase,
+            IERC20Extended(_paymentCurrency).safeTransferFrom(msg.sender, address(this), valueInBase);
+        } else if (_paymentCurrency != address(0)) {
+            _processSecundaryCurrencyPayment(
+                _finance.swapRouter,
+                _paymentCurrency,
+                _baseCurrency,
+                _relativePath,
                 _priceWithSlippage,
-                path,
-                address(this),
-                block.timestamp
+                valueInBase
             );
-            if (amounts[0] < _priceWithSlippage) {
-                sendErc20(msg.sender, _priceWithSlippage - amounts[0], _paymentToken);
-            }
         } else {
             require(msg.value >= _priceWithSlippage, "Not enough ethers sent");
-            address[] memory path = new address[](_relativePath.length + 2);
-            path[0] = _finance.swapRouter.WETH();
-            for (uint256 i = 0; i < _relativePath.length; i++) {
-                path[i + 1] = _relativePath[i];
-            }
-            path[path.length - 1] = _baseCurrency;
-            uint256[] memory amounts = _finance.swapRouter.swapETHForExactTokens{ value: _priceWithSlippage }(
-                valueInBase,
-                path,
-                address(this),
-                block.timestamp
-            );
-            if (amounts[0] < msg.value) {
-                sendEther(msg.sender, msg.value - amounts[0]);
-            }
+            _processEthPayment(_finance.swapRouter, _baseCurrency, _relativePath, _priceWithSlippage, valueInBase);
         }
     }
 
@@ -274,11 +250,82 @@ library IROFinance {
         return (_valueInBase * 10 ** uint256(_getTokenDecimals(_paymentToken))) / paymentTokenPriceInBase;
     }
 
+    /// @dev process ETH payment
+    /// @param _swapRouter IUniswapV2Router01 swap router
+    /// @param _baseCurrency The IRO base payment currency
+    /// @param _route Route between ETH and the base payment currency
+    /// @param _payment Value to pay
+    /// @param _valueInBaseCurrency Value in base payment currency
+    function _processEthPayment(
+        IUniswapV2Router01 _swapRouter,
+        address _baseCurrency,
+        address[] memory _route,
+        uint256 _payment,
+        uint256 _valueInBaseCurrency
+    ) private {
+        address[] memory path = _assemblePath(_swapRouter.WETH(), _route, _baseCurrency);
+        uint256[] memory amounts = _swapRouter.swapETHForExactTokens{ value: _payment }(
+            _valueInBaseCurrency,
+            path,
+            address(this),
+            block.timestamp
+        );
+        if (amounts[0] < msg.value) {
+            sendEther(msg.sender, msg.value - amounts[0]);
+        }
+    }
+
+    /// @dev Process secundary currency payment
+    /// @param _swapRouter IUniswapV2Router01 swap router
+    /// @param _paymentCurrency Secundary payment currency address
+    /// @param _baseCurrency The IRO base payment currency
+    /// @param _route Route between ETH and the base payment currency
+    /// @param _payment Value to pay
+    /// @param _valueInBaseCurrency Value in base payment currency
+    function _processSecundaryCurrencyPayment(
+        IUniswapV2Router01 _swapRouter,
+        address _paymentCurrency,
+        address _baseCurrency,
+        address[] memory _route,
+        uint256 _payment,
+        uint256 _valueInBaseCurrency
+    ) private {
+        IERC20Extended(_paymentCurrency).safeTransferFrom(msg.sender, address(this), _payment);
+        IERC20Extended(_paymentCurrency).safeApprove(address(_swapRouter), _payment);
+        address[] memory path = _assemblePath(_paymentCurrency, _route, _baseCurrency);
+        uint256[] memory amounts = _swapRouter.swapTokensForExactTokens(
+            _valueInBaseCurrency,
+            _payment,
+            path,
+            address(this),
+            block.timestamp
+        );
+        if (amounts[0] < _payment) {
+            sendErc20(msg.sender, _payment - amounts[0], _paymentCurrency);
+        }
+    }
+
     /// @dev Get the number of decimals of a token
     /// @param _token Token address
     /// @return Number of decimals
     function _getTokenDecimals(address _token) private view returns (uint8) {
         if (_token == address(0)) return ETH_DECIMALS;
         return IERC20Extended(_token).decimals();
+    }
+
+    /// @dev Assemble swap router path
+    /// @param _entry Entry currency address
+    /// @param _route Route between entry and exit
+    /// @param _exit End currency address
+    function _assemblePath(
+        address _entry,
+        address[] memory _route,
+        address _exit
+    ) private pure returns (address[] memory path) {
+        path[0] = _entry;
+        for (uint256 i = 0; i < _route.length; i++) {
+            path[i + 1] = _route[i];
+        }
+        path[path.length - 1] = _exit;
     }
 }
