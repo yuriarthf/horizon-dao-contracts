@@ -395,6 +395,23 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             );
     }
 
+    /// @notice Get the current total supply
+    /// @param _iroId ID of the IRO
+    function totalSupply(uint256 _iroId) external view returns (uint256) {
+        IRO memory iro = getIRO(_iroId);
+        return IROFinance.expectedTotalSupply(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
+    }
+
+    /// @notice Get minimum and maximum supply
+    /// @param _iroId ID of the IRO
+    function totalSupplyInterval(
+        uint256 _iroId
+    ) external view returns (uint256 minTotalSupply, uint256 maxTotalSupply) {
+        IRO memory iro = getIRO(_iroId);
+        minTotalSupply = IROFinance.expectedTotalSupply(iro.softCap, iro.unitPrice, iro.listingOwnerShare);
+        maxTotalSupply = IROFinance.expectedTotalSupply(iro.hardCap, iro.unitPrice, iro.listingOwnerShare);
+    }
+
     /// @notice Get the price with slippage
     /// @notice Takes into account swap fees
     /// @param _iroId ID of the IRO

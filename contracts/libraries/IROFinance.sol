@@ -169,7 +169,7 @@ library IROFinance {
     /// @dev Should be less than 100% or it will overflows
     /// @param _totalFunding Total IRO funding
     /// @param _unitPrice IRO token unit price
-    /// @param _share Token share
+    /// @param _share Listing owner token share
     /// @return amount Amount of tokens
     function listingOwnerAmount(
         uint256 _totalFunding,
@@ -177,7 +177,21 @@ library IROFinance {
         uint16 _share
     ) internal pure returns (uint256 amount) {
         uint256 totalPurchased = _totalFunding / _unitPrice;
-        amount = (totalPurchased * _share) / (IROFinance.DENOMINATOR - _share);
+        amount = (totalPurchased * _share) / (DENOMINATOR - _share);
+    }
+
+    /// @dev Expected token total supply taking into consideration
+    ///     the listing owner share and current funding
+    /// @param _totalFunding Total IRO funding
+    /// @param _unitPrice IRO token unit price
+    /// @param _listingOwnerShare Listing owner token share
+    /// @return amount Amount of tokens
+    function expectedTotalSupply(
+        uint256 _totalFunding,
+        uint256 _unitPrice,
+        uint16 _listingOwnerShare
+    ) internal pure returns (uint256) {
+        return _totalFunding / _unitPrice + listingOwnerAmount(_totalFunding, _unitPrice, _listingOwnerShare);
     }
 
     /// @dev Distribute funds during IRO withdrawal
