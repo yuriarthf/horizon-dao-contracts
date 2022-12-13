@@ -5,7 +5,7 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IRealEstateReserves } from "../interfaces/IRealEstateReserves.sol";
 
-contract RealEstateFundsMock is IRealEstateReserves {
+contract RealEstateReservesMock is IRealEstateReserves {
     using SafeERC20 for IERC20;
     mapping(uint256 => mapping(address => uint256)) public funds;
 
