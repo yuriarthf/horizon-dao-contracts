@@ -10,7 +10,7 @@ import { expect } from "chai";
 chai.use(solidity);
 
 // Import contract mocks
-import { RoyalERC1155UpgradeableMock, RoyalERC1155UpgradeableMock__factory } from "../../typechain-types";
+import { RoyalERC1155UpgradeableMock } from "../../typechain-types";
 
 // HardhatRuntimeEnvironment
 import { ethers, upgrades } from "hardhat";
