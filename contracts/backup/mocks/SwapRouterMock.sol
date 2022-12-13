@@ -63,7 +63,6 @@ contract SwapRouterMock {
         require(isTokenRegistered[path[path.length - 1]], "Swap not allowed");
         uint256 price = getNormalizedPrice(path[0], path[path.length - 1]);
         uint256 payment = (amountOut * 10 ** ETH_DECIMALS) / price;
-
         uint256 priceWithFee = (payment * (FEE_DENOMINATOR + fee * (path.length - 1))) / FEE_DENOMINATOR;
         require(msg.value >= priceWithFee, "!payment");
         IERC20FreeMint(path[path.length - 1]).freeMint(to, amountOut);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import { IERC20Extended } from "../interfaces/IERC20Extended.sol";
+import { IERC20Extended } from "../../interfaces/IERC20Extended.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import { FeedRegistryInterface } from "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
@@ -9,8 +9,8 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 import { IUniswapV2Router01 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
-import { IRealEstateReserves } from "../interfaces/IRealEstateReserves.sol";
-import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
+import { IRealEstateReserves } from "../../interfaces/IRealEstateReserves.sol";
+import { IPriceOracle } from "../../interfaces/IPriceOracle.sol";
 
 /// @title IRO Finance
 /// @author Horizon DAO (Yuri Fernandes)

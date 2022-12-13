@@ -1,5 +1,5 @@
 module.exports = {
-  skipFiles: ["mock", "test"],
+  skipFiles: ["mock", "test", "backup"],
   configureYulOptimizer: true,
   providerOptions: { options: { gasPrice: 0 } },
 };
