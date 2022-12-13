@@ -294,7 +294,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(commitAmount > 0, "Nothing to mint");
         if (status == Status.SUCCESS) {
             uint256 amountToMint = commitAmount / iro.unitPrice;
-            realEstateNft.mint(_retrieveRealEstateId(_iroId), msg.sender, amountToMint);
+            realEstateNft.mint(_retrieveRealEstateId(_iroId), _to, amountToMint);
             emit TokensClaimed(_iroId, msg.sender, _to, amountToMint);
         } else {
             IROFinance.sendErc20(_to, commitAmount, finance.baseCurrency);
