@@ -18,15 +18,25 @@ contract SwapRouterMock {
 
     uint256 public constant DEFAULT_PRICE = 1 ether;
 
-    uint256 public constant PRICE_DECIMALS = 1 ether; // 18 decimals
+    uint16 public constant FEE_DENOMINATOR = 10000;
 
-    uint256 public constant TOKEN_DECIMALS = 1 ether; // 18 decimals
+    uint8 public constant ETH_DECIMALS = 18;
+
+    uint8 public immutable priceDecimals;
+
+    uint8 public immutable tokenDecimals;
+
+    uint16 public immutable fee;
 
     mapping(address => mapping(address => uint256)) private _price;
 
     mapping(address => bool) public isTokenRegistered;
 
-    constructor() {}
+    constructor() {
+        priceDecimals = 18;
+        tokenDecimals = 18;
+        fee = 30;
+    }
 
     function setWethMock(address weth_) external {
         _weth = weth_;
@@ -51,14 +61,16 @@ contract SwapRouterMock {
         require(path[0] == _weth, "!ETH");
         require(path.length > 1, "path.length > 1");
         require(isTokenRegistered[path[path.length - 1]], "Swap not allowed");
-        uint256 price = getPrice(path[0], path[path.length - 1]);
-        uint256 payment = (amountOut * TOKEN_DECIMALS) / price;
-        require(msg.value >= payment, "!payment");
+        uint256 price = getNormalizedPrice(path[0], path[path.length - 1]);
+        uint256 payment = (amountOut * 10 ** ETH_DECIMALS) / price;
+
+        uint256 priceWithFee = (payment * (FEE_DENOMINATOR + fee * (path.length - 1))) / FEE_DENOMINATOR;
+        require(msg.value >= priceWithFee, "!payment");
         IERC20FreeMint(path[path.length - 1]).freeMint(to, amountOut);
-        amounts[0] = payment;
+        amounts[0] = priceWithFee;
         amounts[1] = amountOut;
-        if (msg.value > payment) {
-            payable(msg.sender).sendValue(msg.value - payment);
+        if (msg.value > priceWithFee) {
+            payable(msg.sender).sendValue(msg.value - priceWithFee);
         }
     }
 
@@ -72,12 +84,13 @@ contract SwapRouterMock {
         require(path[0] != address(0), "Invalid Token");
         require(path.length > 1, "path.length > 1");
         require(isTokenRegistered[path[path.length - 1]], "Swap not allowed");
-        uint256 price = getPrice(path[0], path[path.length - 1]);
-        uint256 payment = (amountOut * TOKEN_DECIMALS) / price;
+        uint256 price = getNormalizedPrice(path[0], path[path.length - 1]);
+        uint256 payment = (amountOut * 10 ** tokenDecimals) / price;
+        uint256 priceWithFee = (payment * (FEE_DENOMINATOR + fee * (path.length - 1))) / FEE_DENOMINATOR;
         require(payment <= amountInMax, "!amountInMax");
-        IERC20(path[0]).safeTransferFrom(msg.sender, address(this), payment);
+        IERC20(path[0]).safeTransferFrom(msg.sender, address(this), priceWithFee);
         IERC20FreeMint(path[path.length - 1]).freeMint(to, amountOut);
-        amounts[0] = payment;
+        amounts[0] = priceWithFee;
         amounts[1] = amountOut;
     }
 
@@ -85,13 +98,23 @@ contract SwapRouterMock {
         return _weth;
     }
 
-    function getPrice(address _base, address _quote) public view returns (uint256) {
+    function getNormalizedPrice(address _base, address _quote) public view returns (uint256) {
         uint256 price = _price[_base][_quote];
+        uint8 baseDecimals = _base == address(0) ? ETH_DECIMALS : tokenDecimals;
         if (price == 0) {
             price = _price[_quote][_base];
-            if (price == 0) return DEFAULT_PRICE;
-            return (PRICE_DECIMALS * TOKEN_DECIMALS) / price;
+            if (price == 0) return _normalizePrice(DEFAULT_PRICE, baseDecimals);
+            return (10 ** baseDecimals) ** 2 / _normalizePrice(price, baseDecimals);
         }
-        return price;
+        return _normalizePrice(price, baseDecimals);
+    }
+
+    function _normalizePrice(uint256 price_, uint8 _tokenDecimals) internal view returns (uint256) {
+        if (_tokenDecimals > priceDecimals) {
+            return price_ * (10 ** (_tokenDecimals - priceDecimals));
+        } else if (priceDecimals > _tokenDecimals) {
+            return price_ / (10 ** (priceDecimals - _tokenDecimals));
+        }
+        return price_;
     }
 }
