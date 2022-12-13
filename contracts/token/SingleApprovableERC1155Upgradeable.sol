@@ -56,6 +56,11 @@ abstract contract SingleApprovableERC1155Upgradeable is
         emit NewAdmin(_admin);
     }
 
+    /// @notice Get implementation address
+    function implementation() external view returns (address) {
+        return _getImplementation();
+    }
+
     /// @notice Approve a spender to transfer tokens
     /// @param _tokenId Collection ID
     /// @param _spender Spender address
