@@ -5,8 +5,8 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { AggregatorV3Interface } from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-import { IERC20Extended } from "../interfaces/IERC20Extended.sol";
-import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
+import { IERC20Extended } from "../../interfaces/IERC20Extended.sol";
+import { IPriceOracle } from "../../interfaces/IPriceOracle.sol";
 
 /// @title Price Oracle
 /// @author Horizon DAO (Yuri Fernandes)

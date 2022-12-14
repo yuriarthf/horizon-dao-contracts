@@ -25,6 +25,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     uint16 public constant DENOMINATOR = 10000;
 
     /// @dev IRO status enum
+    /// @dev Status descriptions:
+    ///     - PENDING: IRO hasn't started
+    ///     - ONGOING: IRO is active, commits are allowed
+    ///     - SUCCESS: IRO has been successful, claiming is allowed
+    ///     - FAIL: IRO failed, committed funds are withdrawable
     enum Status {
         PENDING,
         ONGOING,
@@ -35,6 +40,19 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Initial Real Estate Offerring structure
     /// @dev Since timestamps are 64 bit integers, last IRO
     ///     should finish at 21 de julho de 2554 11:34:33.709 UTC.
+    /// @dev Field description:
+    ///     - listingOwner: Address of the IRO listing owner
+    ///     - start: IRO start time
+    ///     - treasuryFee: Basis point treasury fee over total funds
+    ///     - listingOwnerFee: Basis point listing owner fee over total funds
+    ///     - end: IRO end time
+    ///     - softCap: Minimum amount of funds necessary for the IRO to be
+    ///         successful
+    ///     - hardCap: Maximum amount of funds possible to the IRO
+    ///     - unitPrice: IRO price per token
+    ///     - totalFunding: Total amount of funds collected during an IRO
+    ///     - currency: IRO currency, used as a security measurement, if
+    ///         the contract-level currency has changed during active IROs
     struct IRO {
         address listingOwner;
         uint64 start;
@@ -379,18 +397,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         amount = _listingOwnerAmount(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
     }
 
-    /// @dev Calculate total supply
-    /// @param _totalFunding Total IRO funding
-    /// @param _unitPrice IRO token unit price
-    /// @param _listingOwnerShare Listing owner token share
-    function _calculateSupply(
-        uint256 _totalFunding,
-        uint256 _unitPrice,
-        uint16 _listingOwnerShare
-    ) internal pure returns (uint256) {
-        return _totalFunding / _unitPrice + _listingOwnerAmount(_totalFunding, _unitPrice, _listingOwnerShare);
-    }
-
     /// @dev Retrieve the realEstateId associated with a given IRO
     /// @dev If none is assigned, assigns a new one
     /// @param _iroId ID of the IRO
@@ -421,6 +427,18 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             return Status.SUCCESS;
         }
         return Status.FAIL;
+    }
+
+    /// @dev Calculate total supply
+    /// @param _totalFunding Total IRO funding
+    /// @param _unitPrice IRO token unit price
+    /// @param _listingOwnerShare Listing owner token share
+    function _calculateSupply(
+        uint256 _totalFunding,
+        uint256 _unitPrice,
+        uint16 _listingOwnerShare
+    ) internal pure returns (uint256) {
+        return _totalFunding / _unitPrice + _listingOwnerAmount(_totalFunding, _unitPrice, _listingOwnerShare);
     }
 
     /// @dev Calculate listing owner amount
