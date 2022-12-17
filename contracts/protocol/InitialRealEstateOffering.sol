@@ -44,7 +44,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     ///     - listingOwner: Address of the IRO listing owner
     ///     - start: IRO start time
     ///     - treasuryFee: Basis point treasury fee over total funds
-    ///     - listingOwnerFee: Basis point listing owner fee over total funds
+    ///     - reservesFee: Basis point real estate reserves fee over total funds
     ///     - end: IRO end time
     ///     - softCap: Minimum amount of funds necessary for the IRO to be
     ///         successful
@@ -57,7 +57,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         address listingOwner;
         uint64 start;
         uint16 treasuryFee;
-        uint16 listingOwnerFee;
+        uint16 reservesFee;
         uint16 listingOwnerShare;
         uint64 end;
         uint256 softCap;
@@ -102,7 +102,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Emitted when a new IRO is created
     event CreateIRO(
-        uint256 indexed _id,
+        uint256 indexed _iroId,
         address indexed _listingOwner,
         uint256 _unitPrice,
         uint16 _listingOwnerShare,
@@ -148,7 +148,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         bool indexed _realEstateFundsSet,
         uint256 _listingOwnerAmount,
         uint256 _treasuryAmount,
-        uint256 _realEstateFundsAmount
+        uint256 _realEstateReservesAmount
     );
 
     /// @dev Initialize IRO contract
@@ -202,7 +202,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Create new IRO
     /// @param _listingOwner Listing owner address
-    /// @param _listingOwnerFee Listing owner fee in basis points
     /// @param _listingOwnerShare Listing owner share of IRO tokens in basis points
     /// @param _treasuryFee Treasury fee percentage in basis points
     /// @param _duration Duration of the IRO in seconds
@@ -212,9 +211,9 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _startOffset Time before IRO begins
     function createIRO(
         address _listingOwner,
-        uint16 _listingOwnerFee,
         uint16 _listingOwnerShare,
         uint16 _treasuryFee,
+        uint16 _reservesFee,
         uint64 _duration,
         uint256 _softCap,
         uint256 _hardCap,
@@ -222,7 +221,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint64 _startOffset
     ) external onlyOwner {
         require(_listingOwnerShare <= DENOMINATOR, "Invalid basis point");
-        require(_treasuryFee + _listingOwnerFee <= DENOMINATOR, "Fees should be less than 100%");
+        require(_treasuryFee + _reservesFee <= DENOMINATOR, "Fees should be less than 100%");
         require((_hardCap - _softCap) % _unitPrice == 0, "Caps should be multiples of unitPrice");
 
         uint256 currentId = iroLength();
@@ -232,7 +231,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             listingOwner: _listingOwner,
             start: start_,
             treasuryFee: _treasuryFee,
-            listingOwnerFee: _listingOwnerFee,
+            reservesFee: _reservesFee,
             listingOwnerShare: _listingOwnerShare,
             end: end_,
             softCap: _softCap,
@@ -319,8 +318,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
                 realEstateReserves,
                 _retrieveRealEstateId(_iroId),
                 iro.totalFunding,
-                iro.listingOwnerFee,
                 iro.treasuryFee,
+                iro.reservesFee,
                 iro.currency
             );
         _fundsWithdrawn.set(_iroId);
@@ -331,6 +330,20 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             listingOwnerAmount_,
             treasuryAmount,
             realEstateReservesAmount
+        );
+    }
+
+    /// @notice Get an user purchased amount and shares of an IRO
+    /// @param _iroId ID of the IRO
+    /// @param _user User address
+    /// @return amount Purchased amount
+    /// @return share IRO share
+    function userAmountAndShare(uint256 _iroId, address _user) external view returns (uint256 amount, uint16 share) {
+        IRO memory iro = getIRO(_iroId);
+        uint256 userCommit = commits[_iroId][_user];
+        amount = userCommit / iro.unitPrice;
+        share = uint16(
+            (amount * DENOMINATOR) / _calculateSupply(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare)
         );
     }
 
@@ -475,7 +488,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _realEstateReserves RealEstateReserves contract address
     /// @param _realEstateId ID of the RealEstate token to receive the funds
     /// @param _totalFunding Total funds from the IRO
-    /// @param _listingOwnerFee Fee requested by the listing owner
     /// @param _treasuryFee Treasury fee
     /// @param _currency IRO currency address
     function _distributeFunds(
@@ -484,8 +496,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         IRealEstateReserves _realEstateReserves,
         uint256 _realEstateId,
         uint256 _totalFunding,
-        uint256 _listingOwnerFee,
-        uint256 _treasuryFee,
+        uint16 _treasuryFee,
+        uint16 _reservesFee,
         address _currency
     )
         private
@@ -496,12 +508,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             bool realEstateReservesSet
         )
     {
-        if (_listingOwnerFee > 0) {
-            listingOwnerAmount_ = (_listingOwnerFee * _totalFunding) / DENOMINATOR;
-            IERC20Upgradeable(_currency).safeTransfer(_listingOwner, listingOwnerAmount_);
-        }
         treasuryAmount = (_treasuryFee * _totalFunding) / DENOMINATOR;
-        realEstateReservesAmount = _totalFunding - (listingOwnerAmount_ + treasuryAmount);
+        realEstateReservesAmount = (_reservesFee * _totalFunding) / DENOMINATOR;
         if (address(_realEstateReserves) != address(0)) {
             realEstateReservesSet = true;
             if (treasuryAmount > 0) {
@@ -513,7 +521,9 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
                 _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _currency);
             }
         } else {
-            IERC20Upgradeable(_currency).safeTransfer(_treasury, _totalFunding - listingOwnerAmount_);
+            IERC20Upgradeable(_currency).safeTransfer(_treasury, treasuryAmount + realEstateReservesAmount);
         }
+        listingOwnerAmount_ = _totalFunding - (treasuryAmount + realEstateReservesAmount);
+        IERC20Upgradeable(_currency).safeTransfer(_listingOwner, listingOwnerAmount_);
     }
 }
