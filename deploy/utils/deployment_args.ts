@@ -56,13 +56,15 @@ const realEstateReserves: { [network: string]: string } = {
 */
 
 // Price Feed Registry
-const priceFeedRegistry = async () => (await hre.deployments.get("PriceOracle")).address;
+//const priceFeedRegistry = async () => (await hre.deployments.get("PriceOracle")).address;
 
 // Swap Router
+/*
 const swapRouter: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
 };
+*/
 
 // whitelisted tokens
 export function whitelistedTokens(network: string) {
