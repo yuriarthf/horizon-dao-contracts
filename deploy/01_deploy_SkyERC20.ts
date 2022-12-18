@@ -1,4 +1,4 @@
-// 1_deploy_SkyERC20.ts: Deploy SkyERC20
+// 01_deploy_SkyERC20.ts: Deploy SkyERC20
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";

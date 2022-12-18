@@ -1,4 +1,4 @@
-// 2_deploy_RealEstateERC1155.ts: Deploy RealEstateERC1155
+// 02_deploy_RealEstateERC1155.ts: Deploy RealEstateERC1155
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";

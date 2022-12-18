@@ -1,4 +1,4 @@
-// 4_deploy_InitialRealEstateOffering.ts: Deploy InitialRealEstateOffering
+// 03_deploy_InitialRealEstateOffering.ts: Deploy InitialRealEstateOffering
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -46,5 +46,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     });
   }
 };
-func.tags = ["deploy", "InitialRealEstateOffering", "IRO", "RealEstate", "04"];
+func.tags = ["deploy", "InitialRealEstateOffering", "IRO", "RealEstate", "03"];
 export default func;

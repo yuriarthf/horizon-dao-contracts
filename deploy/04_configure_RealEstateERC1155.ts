@@ -1,4 +1,4 @@
-// 05_configure_RealEstateERC1155.ts: Configure RealEstateERC1155 contract
+// 04_configure_RealEstateERC1155.ts: Configure RealEstateERC1155 contract
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -27,5 +27,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // transfer admin role to Horizon Multisig
   await realEstateNft.connect(realEstateAdmin).setAdmin(horizonMultisig[hre.network.name]);
 };
-func.tags = ["config", "RealEstateNFT", "reNFT", "RealEstate", "05"];
+func.tags = ["config", "RealEstateNFT", "reNFT", "RealEstate", "04"];
 export default func;

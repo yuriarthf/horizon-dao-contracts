@@ -1,14 +1,14 @@
-// 07_configure_InitialRealEstateOffering.ts: Configure InitialRealEstateOffering contract
+// 05_configure_InitialRealEstateOffering.ts: Configure InitialRealEstateOffering contract
 
 // Import HRE type
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 // Import types
 import { DeployFunction } from "hardhat-deploy/types";
-import { InitialRealEstateOffering } from "../typechain-types";
+import { InitialRealEstateOffering } from "../../typechain-types";
 
 // Import deployment args
-import { getDeployer, horizonMultisig, whitelistedTokens } from "./utils/deployment_args";
+import { getDeployer, horizonMultisig, whitelistedTokens } from "../utils/deployment_args";
 
 async function initTokenWhitelist(iro: InitialRealEstateOffering, whitelist: ReturnType<typeof whitelistedTokens>) {
   const tokens = Object.values(<{ [s: string]: string }>whitelist);
@@ -34,5 +34,5 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // send ownership to Horizon Multisig
   await iro.connect(iroOwner).transferOwnership(horizonMultisig[hre.network.name]);
 };
-func.tags = ["config", "InitialRealEstateOffering", "IRO", "RealEstate", "07"];
+func.tags = ["config", "InitialRealEstateOffering", "IRO", "RealEstate", "05"];
 export default func;

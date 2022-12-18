@@ -7,10 +7,10 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 // Import constructor arguments for the contracts
-import { pioneerErc1155Args, privateClaim, whitelistSale, publicSaleOffset } from "./utils/deployment_args";
+import { pioneerErc1155Args, privateClaim, whitelistSale, publicSaleOffset } from "../utils/deployment_args";
 
 // Import pioneer merkle tree
-import { PioneerTree } from "../test/token/utils/pioneer_tree";
+import { PioneerTree } from "../../test/token/utils/pioneer_tree";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get deployer address

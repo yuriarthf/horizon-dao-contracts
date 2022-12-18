@@ -64,6 +64,20 @@ const swapRouter: { [network: string]: string } = {
   goerli: "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506",
 };
 
+// whitelisted tokens
+export function whitelistedTokens(network: string) {
+  return {
+    mainnet: {},
+    goerli: {
+      wbtc: "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
+      eth: "0x0000000000000000000000000000000000000000",
+      dai: "0x73967c6a0904aA032C103b4104747E88c566B1A2",
+      usdc: usdc[network],
+      usdt: usdt[network],
+    },
+  }[network];
+}
+
 /*************** PioneerERC1155 ***************/
 // Constructor args
 export function pioneerErc1155Args(network: string) {
@@ -165,27 +179,11 @@ export function priceOracleFeeds(network: string) {
 /*************** InitialRealEstateOffering ***************/
 export async function initialRealEstateOfferingArgs(network: string) {
   return {
-    owner: (await getDeployer()).address,
+    owner: horizonMultisig[network],
     realEstateNft: await realEstateNft(),
     treasury: treasury[network],
     /* realEstateReserves: realEstateReserves[network], */
     realEstateReserves: "0x0000000000000000000000000000000000000000",
-    baseCurrency: usdt[network],
-    priceFeedRegistry: await priceFeedRegistry(),
-    swapRouter: swapRouter[network],
+    currency: usdc[network],
   };
-}
-
-// whitelisted tokens
-export function whitelistedTokens(network: string) {
-  return {
-    mainnet: {},
-    goerli: {
-      wbtc: "0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05",
-      eth: "0x0000000000000000000000000000000000000000",
-      dai: "0x73967c6a0904aA032C103b4104747E88c566B1A2",
-      usdc: usdc[network],
-      usdt: usdt[network],
-    },
-  }[network];
 }

@@ -7,7 +7,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
 // Import deployment args
-import { priceOracleArgs } from "./utils/deployment_args";
+import { priceOracleArgs } from "../utils/deployment_args";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // get necessary hardhat-deploy functions

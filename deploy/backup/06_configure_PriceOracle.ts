@@ -5,10 +5,10 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 // Import types
 import { DeployFunction } from "hardhat-deploy/types";
-import { PriceOracle } from "../typechain-types";
+import { PriceOracle } from "../../typechain-types";
 
 // Import deployment args
-import { getDeployer, horizonMultisig, priceOracleFeeds } from "./utils/deployment_args";
+import { getDeployer, horizonMultisig, priceOracleFeeds } from "../utils/deployment_args";
 
 async function initPriceFeeds(priceOracle: PriceOracle, feedsForNetwork: ReturnType<typeof priceOracleFeeds>) {
   const feeds = Object.values(<{ [s: string]: string[] }>feedsForNetwork);
