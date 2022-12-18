@@ -4,12 +4,12 @@ pragma solidity ^0.8.17;
 import { Counters } from "@openzeppelin/contracts/utils/Counters.sol";
 import { Base64 } from "@openzeppelin/contracts/utils/Base64.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { RoyalERC1155 } from "./RoyalERC1155.sol";
+import { EnforcedRoyaltiesERC1155 } from "./EnforcedRoyaltiesERC1155.sol";
 
 /// @title Horizon Genesis Souvenirs
 /// @author Yuri Fernandes (HorizonDAO)
 /// @notice Collectable HorizonDAO Genesis Souvenirs
-contract HorizonGenesisSouvenirs is RoyalERC1155 {
+contract HorizonGenesisSouvenirs is EnforcedRoyaltiesERC1155 {
     using Counters for Counters.Counter;
     using Strings for uint256;
 
@@ -44,7 +44,7 @@ contract HorizonGenesisSouvenirs is RoyalERC1155 {
         string memory _imageBaseUri,
         address _admin,
         address _owner
-    ) RoyalERC1155(_imageBaseUri, _admin, _owner) {
+    ) EnforcedRoyaltiesERC1155(_imageBaseUri, _admin, _owner) {
         require(_admin != address(0), "Admin should not be ZERO ADDRESS");
         emit NewImageBaseUri(_msgSender(), _imageBaseUri);
     }

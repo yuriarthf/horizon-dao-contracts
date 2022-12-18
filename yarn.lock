@@ -858,6 +858,7 @@ __metadata:
     lint-staged: ^13.0.3
     merkletreejs: ^0.2.32
     mocha: ^10.0.0
+    operator-filter-registry: ^1.3.1
     pinst: ^3.0.0
     prettier: ^2.7.1
     prettier-plugin-solidity: ^1.0.0-dev.23
@@ -1312,7 +1313,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openzeppelin/contracts-upgradeable@npm:^4.8.0-rc.1":
+"@openzeppelin/contracts-upgradeable@npm:^4.8.0, @openzeppelin/contracts-upgradeable@npm:^4.8.0-rc.1":
   version: 4.8.0
   resolution: "@openzeppelin/contracts-upgradeable@npm:4.8.0"
   checksum: c39f3a719830c068d0ae413a8beee4072fa19f777b55bf6155fe21023414eab0633a641318845ac50929837b71848de1efbd00d4c181ddd6d8b735ceb0a82070
@@ -11251,6 +11252,16 @@ __metadata:
     is-docker: ^2.0.0
     is-wsl: ^2.1.1
   checksum: 3333900ec0e420d64c23b831bc3467e57031461d843c801f569b2204a1acc3cd7b3ec3c7897afc9dde86491dfa289708eb92bba164093d8bd88fb2c231843c91
+  languageName: node
+  linkType: hard
+
+"operator-filter-registry@npm:^1.3.1":
+  version: 1.3.1
+  resolution: "operator-filter-registry@npm:1.3.1"
+  dependencies:
+    "@openzeppelin/contracts": ^4.7.3
+    "@openzeppelin/contracts-upgradeable": ^4.8.0
+  checksum: 331ce26a37e9629041c158b85e2609e5afbba152209eacda1a7e289f311144e76cf5bdee178629230244055346e6fa888e55fff4f81f4a41d00d88720531c632
   languageName: node
   linkType: hard
 

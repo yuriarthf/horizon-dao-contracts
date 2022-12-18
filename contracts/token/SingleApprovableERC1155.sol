@@ -21,7 +21,7 @@ abstract contract SingleApprovableERC1155 is ERC1155URIStorage, ERC1155Supply {
     /// @param _tokenId Collection ID
     /// @param _spender Spender address
     /// @param _amount Amount allowed
-    function approve(uint256 _tokenId, address _spender, uint256 _amount) public returns (bool) {
+    function approve(uint256 _tokenId, address _spender, uint256 _amount) public virtual returns (bool) {
         address owner_ = _msgSender();
         _approve(_tokenId, owner_, _spender, _amount);
         return true;
@@ -34,7 +34,7 @@ abstract contract SingleApprovableERC1155 is ERC1155URIStorage, ERC1155Supply {
         uint256 _id,
         uint256 _amount,
         bytes memory _data
-    ) public override {
+    ) public virtual override {
         if (_from != _msgSender() && !isApprovedForAll(_from, _msgSender())) {
             require(_allowances[_id][_from][_msgSender()] >= _amount, "Not authorized");
             _allowances[_id][_from][_msgSender()] -= _amount;
