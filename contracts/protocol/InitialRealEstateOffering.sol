@@ -156,19 +156,16 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _treasury Treasury contract address
     /// @param _realEstateReserves RealEstateReserves contract address
     /// @param _currency Currency used to precify the IRO tokens
-    /// @param _swapRouter Uniswap or Sushiswap swap router
     function initialize(
         address _owner,
         address _realEstateNft,
         address _treasury,
         address _realEstateReserves,
-        address _currency,
-        address _swapRouter
+        address _currency
     ) external initializer {
         require(_realEstateNft != address(0), "!_realEstateNft");
         require(_treasury != address(0), "!_treasury");
         require(_currency != address(0), "!_currency");
-        require(_swapRouter != address(0), "!_swapRouter");
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
         currency = _currency;
