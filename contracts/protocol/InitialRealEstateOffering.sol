@@ -46,13 +46,13 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     ///     - treasuryFee: Basis point treasury fee over total funds
     ///     - reservesFee: Basis point real estate reserves fee over total funds
     ///     - end: IRO end time
+    ///     - currency: IRO currency, used as a security measurement, if
+    ///         the contract-level currency has changed during active IROs
     ///     - softCap: Minimum amount of funds necessary for the IRO to be
     ///         successful
     ///     - hardCap: Maximum amount of funds possible to the IRO
     ///     - unitPrice: IRO price per token
     ///     - totalFunding: Total amount of funds collected during an IRO
-    ///     - currency: IRO currency, used as a security measurement, if
-    ///         the contract-level currency has changed during active IROs
     struct IRO {
         address listingOwner;
         uint64 start;
@@ -60,11 +60,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint16 reservesFee;
         uint16 listingOwnerShare;
         uint64 end;
+        address currency;
         uint256 softCap;
         uint256 hardCap;
         uint256 unitPrice;
         uint256 totalFunding;
-        address currency;
     }
 
     /// @notice Currency address
