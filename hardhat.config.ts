@@ -1,3 +1,4 @@
+// Utilities
 import path from "path";
 
 // brings ethers.js to Hardhat
@@ -35,6 +36,9 @@ import "solidity-coverage";
 
 // add all hardhat tasks
 import "./tasks";
+
+// add all hardhat subtasks
+import "./subtasks";
 
 /**
  * default Hardhat configuration which uses account mnemonic to derive accounts

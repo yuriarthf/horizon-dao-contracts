@@ -8,7 +8,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 
 import { IRealEstateERC1155 } from "../../interfaces/IRealEstateERC1155.sol";
 import { IRealEstateReserves } from "../../interfaces/IRealEstateReserves.sol";
-import { IROFinance } from "../libraries/IROFinance.sol";
+import { IROFinance } from "../libraries/IROFinance.d.sol";
 
 /// @title Initial Real Estate Offering (IRO)
 /// @author Horizon DAO (Yuri Fernandes)
