@@ -104,9 +104,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     event CreateIRO(
         uint256 indexed _iroId,
         address indexed _listingOwner,
+        address indexed _currency,
         uint256 _unitPrice,
         uint16 _listingOwnerShare,
         uint16 _treasuryFee,
+        uint16 _reservesFee,
         uint64 _start,
         uint64 _end
     );
@@ -116,8 +118,8 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 indexed _iroId,
         address indexed _user,
         address indexed _currency,
-        uint256 _amountInBase,
-        uint256 _purchasedTokens
+        uint256 _value,
+        uint256 _purchasedAmount
     );
 
     /// @dev Emitted when tokens are claimed by investors
@@ -239,7 +241,17 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         });
         _nextAvailableId.increment();
 
-        emit CreateIRO(currentId, _listingOwner, _unitPrice, _listingOwnerShare, _treasuryFee, start_, end_);
+        emit CreateIRO(
+            currentId,
+            _listingOwner,
+            currency,
+            _unitPrice,
+            _listingOwnerShare,
+            _treasuryFee,
+            _reservesFee,
+            start_,
+            end_
+        );
     }
 
     /// @notice Commit to an IRO
@@ -427,7 +439,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Get status of an IRO
     /// @param _iro IRO structure
     function _getStatus(IRO memory _iro) internal view returns (Status) {
-        if (now64() <= _iro.start) return Status.PENDING;
+        if (now64() < _iro.start) return Status.PENDING;
         if (now64() < _iro.end) {
             if (_iro.totalFunding == _iro.hardCap) return Status.SUCCESS;
             return Status.ONGOING;
