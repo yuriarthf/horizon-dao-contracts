@@ -2,3 +2,4 @@
 // export * from "./task_name";
 
 export * from "./pioneer_generate_pioneer_tree";
+export * from "./commit_to_iro";

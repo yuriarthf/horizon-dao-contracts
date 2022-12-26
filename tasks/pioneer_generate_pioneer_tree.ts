@@ -1,4 +1,4 @@
-// pioneer_generate_pioneer_tree.ts:
+// pioneer_generate_pioneer_tree.ts: Generate pioneer merkle tree
 
 // fs and path for outputting results
 import fs from "fs";
