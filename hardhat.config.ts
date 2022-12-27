@@ -122,7 +122,6 @@ const config: HardhatUserConfig = {
     goerli: {
       url: get_endpoint_url("goerli"),
       accounts: get_accounts(process.env.P_KEY5, process.env.MNEMONIC5),
-      gas: 50000,
     },
   },
 
