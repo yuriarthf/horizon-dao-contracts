@@ -11,15 +11,10 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 /// @author Yuri Fernandes (HorizonDAO)
 /// @dev Allows the approval for a single collection and a certain amount of tokens
 ///     to be transferred with the allowed party
-abstract contract SingleApprovableERC1155Upgradeable is
-    UUPSUpgradeable,
-    ERC1155URIStorageUpgradeable,
-    ERC1155SupplyUpgradeable
-{
+abstract contract SingleApprovableERC1155Upgradeable is UUPSUpgradeable, ERC1155SupplyUpgradeable {
     function __SingleApprovableERC1155_init(string memory _uri, address _admin) internal onlyInitializing {
         __UUPSUpgradeable_init();
         __ERC1155_init(_uri);
-        __ERC1155URIStorage_init();
         __ERC1155Supply_init();
         __SingleApprovableERC1155_init_unchained(_admin);
     }
@@ -29,6 +24,9 @@ abstract contract SingleApprovableERC1155Upgradeable is
         admin = _admin;
         emit NewAdmin(_admin);
     }
+
+    // Optional base URI
+    string public baseURI;
 
     /// @dev Address of the admin: Can set a new admin among other privileged roles
     address public admin;
@@ -54,6 +52,12 @@ abstract contract SingleApprovableERC1155Upgradeable is
         require(admin != _admin, "admin == _admin");
         admin = _admin;
         emit NewAdmin(_admin);
+    }
+
+    /// @dev Sets the {baseURI} for the contract tokens
+    /// @param baseURI_ Base URI string ended by SLASH
+    function setBaseURI(string memory baseURI_) external onlyAdmin {
+        _setBaseURI(baseURI_);
     }
 
     /// @notice Get implementation address
@@ -103,11 +107,10 @@ abstract contract SingleApprovableERC1155Upgradeable is
         _safeBatchTransferFrom(_from, _to, _ids, _amounts, _data);
     }
 
-    /// @inheritdoc ERC1155URIStorageUpgradeable
-    function uri(
-        uint256 _tokenId
-    ) public view virtual override(ERC1155Upgradeable, ERC1155URIStorageUpgradeable) returns (string memory) {
-        return ERC1155URIStorageUpgradeable.uri(_tokenId);
+    /// @notice Returns the {baseURI} concatenated with {tokenId}
+    /// @param _tokenId to get the matadata URI
+    function uri(uint256 _tokenId) public view virtual override returns (string memory) {
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId)) : super.uri(_tokenId);
     }
 
     /// @dev See {approve} notice
@@ -130,8 +133,14 @@ abstract contract SingleApprovableERC1155Upgradeable is
         uint256[] memory _ids,
         uint256[] memory _amounts,
         bytes memory _data
-    ) internal virtual override(ERC1155Upgradeable, ERC1155SupplyUpgradeable) {
+    ) internal virtual override {
         ERC1155SupplyUpgradeable._beforeTokenTransfer(_operator, _from, _to, _ids, _amounts, _data);
+    }
+
+    /// @dev Sets `baseURI` as the `_baseURI` for all tokens
+    /// @param baseURI_ Base URI string ended by SLASH
+    function _setBaseURI(string memory baseURI_) internal virtual {
+        baseURI = baseURI_;
     }
 
     /// @dev Restrict upgrading to the admin role
@@ -142,5 +151,5 @@ abstract contract SingleApprovableERC1155Upgradeable is
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 }
