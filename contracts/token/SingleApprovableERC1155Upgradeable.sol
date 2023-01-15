@@ -6,12 +6,15 @@ import { ERC1155SupplyUpgradeable } from "@openzeppelin/contracts-upgradeable/to
 import { ERC1155URIStorageUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155URIStorageUpgradeable.sol";
 import { IERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/interfaces/IERC1155Upgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { StringsUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 
 /// @title Upgradeable Siple Approvable ERC1155
 /// @author Yuri Fernandes (HorizonDAO)
 /// @dev Allows the approval for a single collection and a certain amount of tokens
 ///     to be transferred with the allowed party
 abstract contract SingleApprovableERC1155Upgradeable is UUPSUpgradeable, ERC1155SupplyUpgradeable {
+    using StringsUpgradeable for uint256;
+
     function __SingleApprovableERC1155_init(string memory _uri, address _admin) internal onlyInitializing {
         __UUPSUpgradeable_init();
         __ERC1155_init(_uri);
@@ -116,7 +119,7 @@ abstract contract SingleApprovableERC1155Upgradeable is UUPSUpgradeable, ERC1155
     /// @notice Returns the {baseURI} concatenated with {tokenId}
     /// @param _tokenId to get the matadata URI
     function uri(uint256 _tokenId) public view virtual override returns (string memory) {
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId)) : super.uri(_tokenId);
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _tokenId.toString())) : super.uri(_tokenId);
     }
 
     /// @dev See {approve} notice
