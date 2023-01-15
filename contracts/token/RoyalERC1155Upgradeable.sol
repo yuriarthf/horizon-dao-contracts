@@ -94,19 +94,6 @@ abstract contract RoyalERC1155Upgradeable is ERC2981Upgradeable, SingleApprovabl
         emit ContractURIUpdated(msg.sender, _contractURI);
     }
 
-    /// @dev Sets `baseURI` as the `_baseURI` for all tokens
-    /// @param _baseURI Base URI to be prepended to the token URI
-    function setBaseURI(string memory _baseURI) external virtual onlyAdmin {
-        _setBaseURI(_baseURI);
-    }
-
-    /// @dev Sets `tokenURI` as the tokenURI of `tokenId`.
-    /// @param _tokenId ID of the token
-    /// @param _tokenURI URI of the token (will be prepended by _baseURI when uri function is called)
-    function setURI(uint256 _tokenId, string memory _tokenURI) external virtual onlyAdmin {
-        _setURI(_tokenId, _tokenURI);
-    }
-
     /// @dev Restricted access function to set smart contract "owner"
     ///      Note: an "owner" set doesn't have any authority, and cannot even update "owner"
     /// @param _owner new "owner" of the smart contract

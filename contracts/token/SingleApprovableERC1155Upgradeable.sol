@@ -56,8 +56,14 @@ abstract contract SingleApprovableERC1155Upgradeable is UUPSUpgradeable, ERC1155
 
     /// @dev Sets the {baseURI} for the contract tokens
     /// @param baseURI_ Base URI string ended by SLASH
-    function setBaseURI(string memory baseURI_) external onlyAdmin {
+    function setBaseURI(string memory baseURI_) external virtual onlyAdmin {
         _setBaseURI(baseURI_);
+    }
+
+    /// @dev Sets default URI
+    /// @param _tokenURI URI of the token (will be prepended by _baseURI when uri function is called)
+    function setURI(string memory _tokenURI) external virtual onlyAdmin {
+        _setURI(_tokenURI);
     }
 
     /// @notice Get implementation address

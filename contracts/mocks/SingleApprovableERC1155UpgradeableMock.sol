@@ -36,11 +36,11 @@ contract SingleApprovableERC1155UpgradeableMock is SingleApprovableERC1155Upgrad
         msgSenderMock = _mockedAddress;
     }
 
-    function setURI(uint256 _tokenId, string memory _tokenURI) external virtual {
-        _setURI(_tokenId, _tokenURI);
+    function setURI(string memory _tokenURI) external virtual override {
+        _setURI(_tokenURI);
     }
 
-    function setBaseURI(string memory _baseURI) external virtual {
+    function setBaseURI(string memory _baseURI) external virtual override {
         _setBaseURI(_baseURI);
     }
 }
