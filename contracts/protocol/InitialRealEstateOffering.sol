@@ -48,21 +48,17 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     ///     - end: IRO end time
     ///     - currency: IRO currency, used as a security measurement, if
     ///         the contract-level currency has changed during active IROs
-    ///     - softCap: Minimum amount of funds necessary for the IRO to be
-    ///         successful
-    ///     - hardCap: Maximum amount of funds possible to the IRO
+    ///     - targetCap: Target funding for the IRO to be successful
     ///     - unitPrice: IRO price per token
     ///     - totalFunding: Total amount of funds collected during an IRO
     struct IRO {
         address listingOwner;
         uint64 start;
-        uint16 treasuryFee;
-        uint16 reservesFee;
-        uint16 listingOwnerShare;
         uint64 end;
         address currency;
-        uint256 softCap;
-        uint256 hardCap;
+        uint256 treasuryFee;
+        uint256 operationFee;
+        uint256 targetCap;
         uint256 unitPrice;
         uint256 totalFunding;
     }
@@ -75,9 +71,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @notice RealEstateNFT contract address
     IRealEstateERC1155 public realEstateNft;
-
-    /// @notice RealEstateReserves contract address
-    IRealEstateReserves public realEstateReserves;
 
     /// @dev Next available IRO ID
     CountersUpgradeable.Counter private _nextAvailableId;
@@ -94,9 +87,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Points out whether funds have been withdrawn from IRO
     BitMapsUpgradeable.BitMap private _fundsWithdrawn;
 
-    /// @dev Points out whether the listingOwner has claimed it's share
-    BitMapsUpgradeable.BitMap private _listingOwnerClaimed;
-
     /// @dev Whether an ID has already been set in the RealEstateNFT contract for the IRO
     BitMapsUpgradeable.BitMap private _realEstateIdSet;
 
@@ -105,12 +95,12 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 indexed _iroId,
         address indexed _listingOwner,
         address indexed _currency,
-        uint256 _unitPrice,
-        uint16 _listingOwnerShare,
-        uint16 _treasuryFee,
-        uint16 _reservesFee,
         uint64 _start,
-        uint64 _end
+        uint64 _end,
+        uint256 _unitPrice,
+        uint256 _treasuryFee,
+        uint256 _operationFee,
+        uint256 _targetCap
     );
 
     /// @dev Emitted when a new Commit is made to an IRO
@@ -125,9 +115,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Emitted when tokens are claimed by investors
     event TokensClaimed(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _amount);
 
-    /// @dev Emitted when the listing owner claims it's shares of the tokens
-    event OwnerTokensClaimed(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _amount);
-
     /// @dev Emitted when an investors withdraw it's funds after an IRO fails
     event CashBack(uint256 indexed _iroId, address indexed _by, address indexed _to, uint256 _commitAmount);
 
@@ -137,9 +124,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Emitted when the Treasury contract is set
     event SetTreasury(address indexed _by, address indexed _treasury);
 
-    /// @dev Emitted when the RealEstateReserves contract is set
-    event SetRealEstateReserves(address indexed _by, address indexed _realEstateReserves);
-
     /// @dev Emitted when a new real estate token ID is created
     event RealEstateCreated(uint256 indexed _iroId, uint256 indexed _realEstateId);
 
@@ -147,22 +131,19 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     event FundsWithdrawn(
         uint256 indexed _iroId,
         address indexed _by,
-        bool indexed _realEstateFundsSet,
         uint256 _listingOwnerAmount,
-        uint256 _treasuryAmount,
-        uint256 _realEstateReservesAmount
+        uint256 _treasuryFee,
+        uint256 _operationFee
     );
 
     /// @dev Initialize IRO contract
     /// @param _realEstateNft RealEstateNFT contract address
     /// @param _treasury Treasury contract address
-    /// @param _realEstateReserves RealEstateReserves contract address
     /// @param _currency Currency used to precify the IRO tokens
     function initialize(
         address _owner,
         address _realEstateNft,
         address _treasury,
-        address _realEstateReserves,
         address _currency
     ) external initializer {
         require(_realEstateNft != address(0), "!_realEstateNft");
@@ -171,7 +152,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         realEstateNft = IRealEstateERC1155(_realEstateNft);
         treasury = _treasury;
         currency = _currency;
-        realEstateReserves = IRealEstateReserves(_realEstateReserves);
         _transferOwnership(_owner);
     }
 
@@ -191,37 +171,24 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         emit SetTreasury(msg.sender, _treasury);
     }
 
-    /// @dev Set new real estate reserves
-    /// @param _realEstateReserves RealEstateReseres address
-    function setRealEstateReserves(address _realEstateReserves) external onlyOwner {
-        require(_realEstateReserves != address(0), "!_realEstateReserves");
-        realEstateReserves = IRealEstateReserves(_realEstateReserves);
-        emit SetRealEstateReserves(msg.sender, _realEstateReserves);
-    }
-
     /// @dev Create new IRO
     /// @param _listingOwner Listing owner address
-    /// @param _listingOwnerShare Listing owner share of IRO tokens in basis points
-    /// @param _treasuryFee Treasury fee percentage in basis points
+    /// @param _treasuryFee Treasury fee in absolute value
+    /// @param _operationFee Operation fee in the IRO currency
     /// @param _duration Duration of the IRO in seconds
-    /// @param _softCap Minimum fundraising in base price token
-    /// @param _hardCap Maximum fundraising in base price token
-    /// @param _unitPrice Price per unit of IRO token in base price token
+    /// @param _targetCap Target funding in the IRO currency
+    /// @param _unitPrice Price per unit of IRO token in the IRO currency
     /// @param _startOffset Time before IRO begins
     function createIRO(
         address _listingOwner,
-        uint16 _listingOwnerShare,
-        uint16 _treasuryFee,
-        uint16 _reservesFee,
+        uint256 _treasuryFee,
+        uint256 _operationFee,
         uint64 _duration,
-        uint256 _softCap,
-        uint256 _hardCap,
+        uint256 _targetCap,
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(_listingOwnerShare <= DENOMINATOR, "Invalid basis point");
-        require(_treasuryFee + _reservesFee <= DENOMINATOR, "Fees should be less than 100%");
-        require((_hardCap - _softCap) % _unitPrice == 0, "Caps should be multiples of unitPrice");
+        require(_treasuryFee + _operationFee <= _targetCap, "Total funding should be greater or equal to fees");
 
         uint256 currentId = iroLength();
         uint64 start_ = now64() + _startOffset;
@@ -229,15 +196,13 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         _iros[currentId] = IRO({
             listingOwner: _listingOwner,
             start: start_,
-            treasuryFee: _treasuryFee,
-            reservesFee: _reservesFee,
-            listingOwnerShare: _listingOwnerShare,
             end: end_,
-            softCap: _softCap,
-            hardCap: _hardCap,
+            currency: currency,
+            treasuryFee: _treasuryFee,
+            operationFee: _operationFee,
+            targetCap: _targetCap,
             unitPrice: _unitPrice,
-            totalFunding: 0,
-            currency: currency
+            totalFunding: 0
         });
         _nextAvailableId.increment();
 
@@ -245,12 +210,12 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             currentId,
             _listingOwner,
             currency,
-            _unitPrice,
-            _listingOwnerShare,
-            _treasuryFee,
-            _reservesFee,
             start_,
-            end_
+            end_,
+            _unitPrice,
+            _treasuryFee,
+            _operationFee,
+            _targetCap
         );
     }
 
@@ -261,7 +226,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
-        require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.hardCap, "Hardcap reached");
+        require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.targetCap, "Target funding reached");
 
         uint256 valueInBase = _processPayment(iro.unitPrice, _amountToPurchase, iro.currency);
 
@@ -295,51 +260,17 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    /// @notice Claim listing owner tokens
-    /// @param _iroId ID of the IRO
-    /// @param _to Address to send the tokens
-    function listingOwnerClaim(uint256 _iroId, address _to) external {
-        IRO memory iro = getIRO(_iroId);
-        require(msg.sender == iro.listingOwner, "!allowed");
-        require(!_listingOwnerClaimed.get(_iroId), "Already claimed");
-        require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
-        require(iro.listingOwnerShare > 0, "Nothing to claim");
-        uint256 listingOwnerAmount_ = _listingOwnerAmount(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
-        realEstateNft.mint(_retrieveRealEstateId(_iroId), _to, listingOwnerAmount_);
-        _listingOwnerClaimed.set(_iroId);
-        emit OwnerTokensClaimed(_iroId, msg.sender, _to, listingOwnerAmount_);
-    }
-
     /// @notice Withdraw and distribute funds from successful IROs
     /// @param _iroId ID of the IRO
     function withdraw(uint256 _iroId) external {
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.SUCCESS, "IRO not successful");
         require(!_fundsWithdrawn.get(_iroId), "Already withdrawn");
-        (
-            uint256 listingOwnerAmount_,
-            uint256 treasuryAmount,
-            uint256 realEstateReservesAmount,
-            bool realEstateReservesSet
-        ) = _distributeFunds(
-                iro.listingOwner,
-                treasury,
-                realEstateReserves,
-                _retrieveRealEstateId(_iroId),
-                iro.totalFunding,
-                iro.treasuryFee,
-                iro.reservesFee,
-                iro.currency
-            );
+
+        uint256 listingOwnerAmount_ = _distributeFunds(iro);
         _fundsWithdrawn.set(_iroId);
-        emit FundsWithdrawn(
-            _iroId,
-            msg.sender,
-            realEstateReservesSet,
-            listingOwnerAmount_,
-            treasuryAmount,
-            realEstateReservesAmount
-        );
+
+        emit FundsWithdrawn(_iroId, msg.sender, listingOwnerAmount_, iro.treasuryFee, iro.operationFee);
     }
 
     /// @notice Get an user purchased amount and shares of an IRO
@@ -351,9 +282,30 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         IRO memory iro = getIRO(_iroId);
         uint256 userCommit = commits[_iroId][_user];
         amount = userCommit / iro.unitPrice;
-        share = uint16(
-            (amount * DENOMINATOR) / _calculateSupply(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare)
-        );
+        share = uint16((amount * DENOMINATOR) / _calculateSupply(iro.totalFunding, iro.unitPrice));
+    }
+
+    /// @notice Get the targetCap composition
+    /// @param _iroId ID of the IRO
+    function targetCapInfo(
+        uint256 _iroId
+    )
+        external
+        view
+        returns (
+            uint256 listingOwnerAmount,
+            uint256 treasuryFee,
+            uint256 operationFee,
+            uint16 treasuryFeeBps,
+            uint16 operationFeeBps
+        )
+    {
+        IRO memory iro = _iros[_iroId];
+        treasuryFee = iro.treasuryFee;
+        operationFee = iro.operationFee;
+        listingOwnerAmount = iro.targetCap - (treasuryFee + operationFee);
+        treasuryFeeBps = uint16((treasuryFee * DENOMINATOR) / listingOwnerAmount);
+        operationFeeBps = uint16((operationFee * DENOMINATOR) / listingOwnerAmount);
     }
 
     /// @notice Get the total price of a purchase
@@ -366,26 +318,23 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @notice Get the current total supply
     /// @param _iroId ID of the IRO
-    function totalSupply(uint256 _iroId) external view returns (uint256) {
+    function currentTotalSupply(uint256 _iroId) external view returns (uint256) {
         IRO memory iro = getIRO(_iroId);
-        return _calculateSupply(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
+        return _calculateSupply(iro.totalFunding, iro.unitPrice);
     }
 
-    /// @notice Get minimum and maximum supply
+    /// @notice Get the total supply of an IRO, if successful
     /// @param _iroId ID of the IRO
-    function totalSupplyInterval(
-        uint256 _iroId
-    ) external view returns (uint256 minTotalSupply, uint256 maxTotalSupply) {
+    function expectedTotalSupply(uint256 _iroId) external view returns (uint256 expectedTotalSupply_) {
         IRO memory iro = getIRO(_iroId);
-        minTotalSupply = _calculateSupply(iro.softCap, iro.unitPrice, iro.listingOwnerShare);
-        maxTotalSupply = _calculateSupply(iro.hardCap, iro.unitPrice, iro.listingOwnerShare);
+        expectedTotalSupply_ = _calculateSupply(iro.targetCap, iro.unitPrice);
     }
 
     /// @notice Get the amount of remaining IRO tokens
     /// @param _iroId ID of the IRO
     function remainingTokens(uint256 _iroId) external view returns (uint256) {
         IRO memory iro = getIRO(_iroId);
-        return (iro.hardCap - iro.totalFunding) / iro.unitPrice;
+        return (iro.targetCap - iro.totalFunding) / iro.unitPrice;
     }
 
     /// @notice Get IRO status
@@ -412,11 +361,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         return _nextAvailableId.current();
     }
 
-    /// @notice Get current listing owner reNFT amount
-    /// @param _iroId ID of the IRO
-    function listingOwnerAmount(uint256 _iroId) public view returns (uint256 amount) {
-        IRO memory iro = _iros[_iroId];
-        amount = _listingOwnerAmount(iro.totalFunding, iro.unitPrice, iro.listingOwnerShare);
+    /// @dev Calculate supply
+    /// @param _totalFunding Total funding amount
+    /// @param _unitPrice IRO token unit price
+    function _calculateSupply(uint256 _totalFunding, uint256 _unitPrice) internal pure returns (uint256) {
+        return _totalFunding / _unitPrice;
     }
 
     /// @dev Retrieve the realEstateId associated with a given IRO
@@ -441,41 +390,11 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     function _getStatus(IRO memory _iro) internal view returns (Status) {
         if (now64() < _iro.start) return Status.PENDING;
         if (now64() < _iro.end) {
-            if (_iro.totalFunding == _iro.hardCap) return Status.SUCCESS;
+            if (_iro.totalFunding == _iro.targetCap) return Status.SUCCESS;
             return Status.ONGOING;
         }
-        if (now64() >= _iro.end) {
-            if (_iro.totalFunding < _iro.softCap) return Status.FAIL;
-            return Status.SUCCESS;
-        }
-        return Status.FAIL;
-    }
-
-    /// @dev Calculate total supply
-    /// @param _totalFunding Total IRO funding
-    /// @param _unitPrice IRO token unit price
-    /// @param _listingOwnerShare Listing owner token share
-    function _calculateSupply(
-        uint256 _totalFunding,
-        uint256 _unitPrice,
-        uint16 _listingOwnerShare
-    ) internal pure returns (uint256) {
-        return _totalFunding / _unitPrice + _listingOwnerAmount(_totalFunding, _unitPrice, _listingOwnerShare);
-    }
-
-    /// @dev Calculate listing owner amount
-    /// @dev Should be less than 100% or it will overflows
-    /// @param _totalFunding Total IRO funding
-    /// @param _unitPrice IRO token unit price
-    /// @param _share Listing owner token share
-    /// @return amount Amount of tokens
-    function _listingOwnerAmount(
-        uint256 _totalFunding,
-        uint256 _unitPrice,
-        uint16 _share
-    ) internal pure returns (uint256 amount) {
-        uint256 totalPurchased = _totalFunding / _unitPrice;
-        amount = (totalPurchased * _share) / (DENOMINATOR - _share);
+        if (_iro.totalFunding < _iro.targetCap) return Status.FAIL;
+        return Status.SUCCESS;
     }
 
     /// @dev Process commit payment
@@ -492,47 +411,22 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /// @dev Distribute funds during IRO withdrawal
-    /// @param _listingOwner The listing owner of the IRO
-    /// @param _treasury Treasury contract address
-    /// @param _realEstateReserves RealEstateReserves contract address
-    /// @param _realEstateId ID of the RealEstate token to receive the funds
-    /// @param _totalFunding Total funds from the IRO
-    /// @param _treasuryFee Treasury fee
-    /// @param _currency IRO currency address
-    function _distributeFunds(
-        address _listingOwner,
-        address _treasury,
-        IRealEstateReserves _realEstateReserves,
-        uint256 _realEstateId,
-        uint256 _totalFunding,
-        uint16 _treasuryFee,
-        uint16 _reservesFee,
-        address _currency
-    )
-        private
-        returns (
-            uint256 listingOwnerAmount_,
-            uint256 treasuryAmount,
-            uint256 realEstateReservesAmount,
-            bool realEstateReservesSet
-        )
-    {
-        treasuryAmount = (_treasuryFee * _totalFunding) / DENOMINATOR;
-        realEstateReservesAmount = (_reservesFee * _totalFunding) / DENOMINATOR;
-        if (address(_realEstateReserves) != address(0)) {
-            realEstateReservesSet = true;
-            if (treasuryAmount > 0) {
-                IERC20Upgradeable(_currency).safeTransfer(_treasury, treasuryAmount);
-            }
+    /// @param _iro IRO instance
 
-            if (realEstateReservesAmount > 0) {
-                IERC20Upgradeable(_currency).safeApprove(address(_realEstateReserves), realEstateReservesAmount);
-                _realEstateReserves.deposit(_realEstateId, realEstateReservesAmount, _currency);
-            }
-        } else {
-            IERC20Upgradeable(_currency).safeTransfer(_treasury, treasuryAmount + realEstateReservesAmount);
-        }
-        listingOwnerAmount_ = _totalFunding - (treasuryAmount + realEstateReservesAmount);
-        IERC20Upgradeable(_currency).safeTransfer(_listingOwner, listingOwnerAmount_);
+    function _distributeFunds(IRO memory _iro) private returns (uint256 listingOwnerAmount_) {
+        // transfer treasury and operation fee
+        uint256 treasuryAmount = _iro.treasuryFee + _iro.operationFee;
+        IERC20Upgradeable(_iro.currency).safeTransfer(treasury, treasuryAmount);
+
+        // transfer listing owner funds
+        listingOwnerAmount_ = _iro.targetCap - treasuryAmount;
+        IERC20Upgradeable(_iro.currency).safeTransfer(treasury, listingOwnerAmount_);
     }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[41] private __gap;
 }
