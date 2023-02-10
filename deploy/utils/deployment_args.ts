@@ -184,8 +184,6 @@ export async function initialRealEstateOfferingArgs(network: string) {
     owner: horizonMultisig[network],
     realEstateNft: await realEstateNft(),
     treasury: treasury[network],
-    /* realEstateReserves: realEstateReserves[network], */
-    realEstateReserves: "0x0000000000000000000000000000000000000000",
     currency: usdc[network],
   };
 }
