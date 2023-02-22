@@ -118,7 +118,7 @@ export async function realEstateErc1155Args(network: string) {
     baseUri: "", // Base URI for the offchain NFT metadata
     admin: (await getDeployer()).address, // Address with contract administration privileges
     owner: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // EOA to be used as OpenSea collection admin
-    yieldCurrency: usdt[network], // Currency used to pay yields
+    yieldCurrency: usdc[network], // Currency used to pay yields
   };
 }
 

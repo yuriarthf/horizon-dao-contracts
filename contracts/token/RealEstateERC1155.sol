@@ -96,6 +96,15 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
         yieldCurrency = _yieldCurrency;
     }
 
+    /// @dev Set new Yield Currency contract
+    /// @dev Should be used with caution and maybe changed or removed before production,
+    ///     since changing it might invalidate previous yield deposits
+    /// @param _yieldCurrency Address of the ERC20 used for yield deposits and claims
+    function setYieldCurrency(address _yieldCurrency) external onlyAdmin {
+        require(yieldCurrency != _yieldCurrency, "Same Yield Currency");
+        yieldCurrency = _yieldCurrency;
+    }
+
     /// @notice Returns the name of the RealEstateERC1155 contract
     function name() external pure returns (string memory) {
         return "Real Estate NFT";

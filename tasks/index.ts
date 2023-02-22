@@ -3,3 +3,5 @@
 
 export * from "./pioneer_generate_pioneer_tree";
 export * from "./commit_to_iro";
+export * from "./deploy-impl";
+export * from "./upgrade-impl";
