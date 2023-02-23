@@ -55,6 +55,9 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     /// @dev mapping (tokenId => account => yieldBalance)
     mapping(uint256 => mapping(address => uint256)) public yieldBalance;
 
+    /// @dev mapping (contractAddress => isWhitelisted)
+    mapping(address => bool) private _contractWhitelisted;
+
     /// @dev Emitted when a new minter is set
     event SetMinter(address indexed _by, address indexed _minter);
 
@@ -87,6 +90,9 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     /// @dev Emitted when yield is claimed
     event ClaimYield(uint256 indexed _id, address indexed _by, address indexed _to, uint256 _yieldClaimed);
 
+    /// @dev Emitted when a contract is whitelisted or blacklisted
+    event ContractWhitelisted(address indexed _by, address indexed _contract, bool indexed _isWhitelisted);
+
     /// @dev Initialize RealEstateNFT
     /// @param _uri Standard (fallback) URI for the offchain NFT metadata
     /// @param _admin Address with contract administration privileges
@@ -103,6 +109,23 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     function setYieldCurrency(address _yieldCurrency) external onlyAdmin {
         require(yieldCurrency != _yieldCurrency, "Same Yield Currency");
         yieldCurrency = _yieldCurrency;
+    }
+
+    /// @dev Toggle yield whitelisting for a contract
+    /// @param _contract Contract address
+    /// @param _whitelisted Whether to whitelist or not
+    function toggleWhitelistContract(address _contract, bool _whitelisted) external onlyAdmin {
+        require(_contract.isContract(), "!contract");
+        require(_contractWhitelisted[_contract] != _whitelisted, "Same state");
+        _contractWhitelisted[_contract] = _whitelisted;
+        emit ContractWhitelisted(msg.sender, _contract, _whitelisted);
+    }
+
+    /// @notice Check if contract is whitelisted for yields
+    /// @param _contract Contract address
+    function isContractWhitelisted(address _contract) external view returns (bool) {
+        require(_contract.isContract(), "!contract");
+        return _contractWhitelisted[_contract];
     }
 
     /// @notice Returns the name of the RealEstateERC1155 contract
@@ -217,6 +240,14 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
         return uint128(block.timestamp);
     }
 
+    /// @notice Whether an address is eligible for yields or not
+    /// @param _address Arbitrary address
+    function eligibleForYields(address _address) public view returns (bool) {
+        if (_address == address(0)) return false;
+        if (!_address.isContract()) return true;
+        return _contractWhitelisted[_address];
+    }
+
     /// @notice Get current yield per token
     /// @param _id Token ID
     function yieldPerToken(uint256 _id) public view returns (uint256) {
@@ -230,7 +261,7 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
     /// @param _id Token ID
     /// @param _account Account to update yield
     function _update(uint256 _id, address _account) internal {
-        if (_account == address(0)) return;
+        if (!eligibleForYields(_account)) return;
         uint256 yieldPerToken_ = yieldPerToken(_id);
         yieldBalance[_id][_account] +=
             balanceOf(_account, _id) *
@@ -295,5 +326,5 @@ contract RealEstateERC1155 is RoyalERC1155Upgradeable {
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[42] private __gap;
+    uint256[41] private __gap;
 }
