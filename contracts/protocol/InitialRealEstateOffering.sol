@@ -58,7 +58,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         address currency;
         uint256 treasuryFee;
         uint256 operationFee;
-        uint256 targetCap;
+        uint256 targetFunding;
         uint256 unitPrice;
         uint256 totalFunding;
     }
@@ -100,7 +100,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 _unitPrice,
         uint256 _treasuryFee,
         uint256 _operationFee,
-        uint256 _targetCap
+        uint256 _targetFunding
     );
 
     /// @dev Emitted when a new Commit is made to an IRO
@@ -176,7 +176,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _treasuryFee Treasury fee in absolute value
     /// @param _operationFee Operation fee in the IRO currency
     /// @param _duration Duration of the IRO in seconds
-    /// @param _targetCap Target funding in the IRO currency
+    /// @param _assetPrice Price of the asset
     /// @param _unitPrice Price per unit of IRO token in the IRO currency
     /// @param _startOffset Time before IRO begins
     function createIRO(
@@ -184,11 +184,15 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint256 _treasuryFee,
         uint256 _operationFee,
         uint64 _duration,
-        uint256 _targetCap,
+        uint256 _assetPrice,
         uint256 _unitPrice,
         uint64 _startOffset
     ) external onlyOwner {
-        require(_treasuryFee + _operationFee <= _targetCap, "Total funding should be greater or equal to fees");
+        uint256 targetFunding = _assetPrice + _operationFee + _treasuryFee;
+        require(
+            (targetFunding / _unitPrice) * _unitPrice == targetFunding,
+            "Target funding should be divisible by unit price"
+        );
 
         uint256 currentId = iroLength();
         uint64 start_ = now64() + _startOffset;
@@ -200,7 +204,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             currency: currency,
             treasuryFee: _treasuryFee,
             operationFee: _operationFee,
-            targetCap: _targetCap,
+            targetFunding: targetFunding,
             unitPrice: _unitPrice,
             totalFunding: 0
         });
@@ -215,7 +219,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
             _unitPrice,
             _treasuryFee,
             _operationFee,
-            _targetCap
+            targetFunding
         );
     }
 
@@ -226,7 +230,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         IRO memory iro = getIRO(_iroId);
         require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
-        require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.targetCap, "Target funding reached");
+        require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.targetFunding, "Target funding reached");
 
         uint256 valueInBase = _processPayment(iro.unitPrice, _amountToPurchase, iro.currency);
 
@@ -293,7 +297,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         external
         view
         returns (
-            uint256 listingOwnerAmount,
+            uint256 assetPrice,
             uint256 treasuryFee,
             uint256 operationFee,
             uint16 treasuryFeeBps,
@@ -303,9 +307,9 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         IRO memory iro = _iros[_iroId];
         treasuryFee = iro.treasuryFee;
         operationFee = iro.operationFee;
-        listingOwnerAmount = iro.targetCap - (treasuryFee + operationFee);
-        treasuryFeeBps = uint16((treasuryFee * DENOMINATOR) / listingOwnerAmount);
-        operationFeeBps = uint16((operationFee * DENOMINATOR) / listingOwnerAmount);
+        assetPrice = iro.targetFunding - (treasuryFee + operationFee);
+        treasuryFeeBps = uint16((treasuryFee * DENOMINATOR) / assetPrice);
+        operationFeeBps = uint16((operationFee * DENOMINATOR) / assetPrice);
     }
 
     /// @notice Get the total price of a purchase
@@ -327,14 +331,14 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @param _iroId ID of the IRO
     function expectedTotalSupply(uint256 _iroId) external view returns (uint256 expectedTotalSupply_) {
         IRO memory iro = getIRO(_iroId);
-        expectedTotalSupply_ = _calculateSupply(iro.targetCap, iro.unitPrice);
+        expectedTotalSupply_ = _calculateSupply(iro.targetFunding, iro.unitPrice);
     }
 
     /// @notice Get the amount of remaining IRO tokens
     /// @param _iroId ID of the IRO
     function remainingTokens(uint256 _iroId) external view returns (uint256) {
         IRO memory iro = getIRO(_iroId);
-        return (iro.targetCap - iro.totalFunding) / iro.unitPrice;
+        return (iro.targetFunding - iro.totalFunding) / iro.unitPrice;
     }
 
     /// @notice Get IRO status
@@ -390,10 +394,10 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     function _getStatus(IRO memory _iro) internal view returns (Status) {
         if (now64() < _iro.start) return Status.PENDING;
         if (now64() < _iro.end) {
-            if (_iro.totalFunding == _iro.targetCap) return Status.SUCCESS;
+            if (_iro.totalFunding == _iro.targetFunding) return Status.SUCCESS;
             return Status.ONGOING;
         }
-        if (_iro.totalFunding < _iro.targetCap) return Status.FAIL;
+        if (_iro.totalFunding < _iro.targetFunding) return Status.FAIL;
         return Status.SUCCESS;
     }
 
@@ -419,7 +423,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         IERC20Upgradeable(_iro.currency).safeTransfer(treasury, treasuryAmount);
 
         // transfer listing owner funds
-        listingOwnerAmount_ = _iro.targetCap - treasuryAmount;
+        listingOwnerAmount_ = _iro.targetFunding - treasuryAmount;
         IERC20Upgradeable(_iro.currency).safeTransfer(treasury, listingOwnerAmount_);
     }
 
