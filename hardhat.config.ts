@@ -51,6 +51,10 @@ import "./subtasks";
  *     or
  *   - MNEMONIC5 – goerli mnemonic, 12 words
  *
+ *   - P_KEY137 - mumbai private key, should start with 0x
+ *     or
+ *   - MNEMONIC137 - mumbai mnemonic, 12 words
+ *
  *   - ALCHEMY_KEY – Alchemy API key
  *     or
  *   - INFURA_KEY – Infura API key (Project ID)
@@ -80,6 +84,13 @@ if (!process.env.MNEMONIC5 && !process.env.P_KEY5) {
 } else if (process.env.P_KEY5 && !process.env.P_KEY5.startsWith("0x")) {
   console.warn("P_KEY5 doesn't start with 0x. Appended 0x");
   process.env.P_KEY5 = "0x" + process.env.P_KEY5;
+}
+if (!process.env.MNEMONIC137 && !process.env.P_KEY137) {
+  console.warn("neither MNEMONIC137 nor P_KEY137 is not set. Mumbai deployments won't be available");
+  process.env.MNEMONIC7 = FAKE_MNEMONIC;
+} else if (process.env.P_KEY137 && !process.env.P_KEY137.startsWith("0x")) {
+  console.warn("P_KEY137 doesn't start with 0x. Appended 0x");
+  process.env.P_KEY137 = "0x" + process.env.P_KEY137;
 }
 if (!process.env.INFURA_KEY && !process.env.ALCHEMY_KEY) {
   console.warn("neither INFURA_KEY nor ALCHEMY_KEY is not set. Deployments may not be available");
@@ -122,6 +133,11 @@ const config: HardhatUserConfig = {
     goerli: {
       url: get_endpoint_url("goerli"),
       accounts: get_accounts(process.env.P_KEY5, process.env.MNEMONIC5),
+    },
+    // https://mumbai.polygonscan.com
+    mumbai: {
+      url: get_endpoint_url("mumbai"),
+      accounts: get_accounts(process.env.P_KEY137, process.env.MNEMONIC137),
     },
   },
 
@@ -171,6 +187,7 @@ const config: HardhatUserConfig = {
     horizon_multisig: {
       mainnet: "",
       goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
+      mumbai: "",
     },
   },
   typechain: {
@@ -200,6 +217,9 @@ function get_endpoint_url(network_name: string) {
   if (process.env.GOERLI_RPC_URL && network_name === "goerli") {
     return process.env.GOERLI_RPC_URL;
   }
+  if (process.env.MUMBAI_RPC_URL && network_name === "mumbai") {
+    return process.env.MUMBAI_RPC_URL;
+  }
 
   // try the alchemy next
   // create a key: https://www.alchemy.com/
@@ -208,6 +228,8 @@ function get_endpoint_url(network_name: string) {
       case "mainnet":
       case "goerli":
         return `https://eth-${network_name}.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`;
+      case "mumbai":
+        return `https://polygon-${network_name}.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`;
       default:
         throw Error("Invalid network");
     }
@@ -219,6 +241,8 @@ function get_endpoint_url(network_name: string) {
     case "mainnet":
     case "goerli":
       return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
+    case "mumbai":
+      return `https://polygon-${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
     default:
       throw Error("Invalid network");
   }

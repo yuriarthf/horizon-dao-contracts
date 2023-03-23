@@ -30,6 +30,7 @@ export const horizonMultisig: { [network: string]: string } = {
 const usdt: { [network: string]: string } = {
   mainnet: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   goerli: "0x509Ee0d083DdF8AC028f2a56731412edD63223B9",
+  mumbai: "0xA02f6adc7926efeBBd59Fd43A84f4E0c0c91e832",
 };
 
 // USDC addresses
@@ -184,6 +185,6 @@ export async function initialRealEstateOfferingArgs(network: string) {
     owner: horizonMultisig[network],
     realEstateNft: await realEstateNft(),
     treasury: treasury[network],
-    currency: usdc[network],
+    currency: usdt[network],
   };
 }
