@@ -51,9 +51,9 @@ import "./subtasks";
  *     or
  *   - MNEMONIC5 – goerli mnemonic, 12 words
  *
- *   - P_KEY137 - mumbai private key, should start with 0x
+ *   - P_KEY80001 - mumbai private key, should start with 0x
  *     or
- *   - MNEMONIC137 - mumbai mnemonic, 12 words
+ *   - MNEMONIC80001 - mumbai mnemonic, 12 words
  *
  *   - ALCHEMY_KEY – Alchemy API key
  *     or
@@ -85,12 +85,12 @@ if (!process.env.MNEMONIC5 && !process.env.P_KEY5) {
   console.warn("P_KEY5 doesn't start with 0x. Appended 0x");
   process.env.P_KEY5 = "0x" + process.env.P_KEY5;
 }
-if (!process.env.MNEMONIC137 && !process.env.P_KEY137) {
-  console.warn("neither MNEMONIC137 nor P_KEY137 is not set. Mumbai deployments won't be available");
+if (!process.env.MNEMONIC80001 && !process.env.P_KEY80001) {
+  console.warn("neither MNEMONIC80001 nor P_KEY80001 is not set. Mumbai deployments won't be available");
   process.env.MNEMONIC7 = FAKE_MNEMONIC;
-} else if (process.env.P_KEY137 && !process.env.P_KEY137.startsWith("0x")) {
-  console.warn("P_KEY137 doesn't start with 0x. Appended 0x");
-  process.env.P_KEY137 = "0x" + process.env.P_KEY137;
+} else if (process.env.P_KEY80001 && !process.env.P_KEY80001.startsWith("0x")) {
+  console.warn("P_KEY80001 doesn't start with 0x. Appended 0x");
+  process.env.P_KEY80001 = "0x" + process.env.P_KEY80001;
 }
 if (!process.env.INFURA_KEY && !process.env.ALCHEMY_KEY) {
   console.warn("neither INFURA_KEY nor ALCHEMY_KEY is not set. Deployments may not be available");
@@ -137,7 +137,7 @@ const config: HardhatUserConfig = {
     // https://mumbai.polygonscan.com
     mumbai: {
       url: get_endpoint_url("mumbai"),
-      accounts: get_accounts(process.env.P_KEY137, process.env.MNEMONIC137),
+      accounts: get_accounts(process.env.P_KEY80001, process.env.MNEMONIC80001),
     },
   },
 
