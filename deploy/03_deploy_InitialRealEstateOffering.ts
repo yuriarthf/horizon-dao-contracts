@@ -30,9 +30,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // deploy USDT Mock if not present in config
   if (!initConfig.currency) {
     const deployResult = await hre.deployments.deploy("USDT_Mock", {
-      contract: "ERC20PermitMock",
+      contract: "USDTMock",
       from: deployer,
-      args: ["USDT Mock", "USDT"],
+      args: [deployer], // TODO: Change to a configurable address
       log: true,
     });
     initConfig.currency = deployResult.address;

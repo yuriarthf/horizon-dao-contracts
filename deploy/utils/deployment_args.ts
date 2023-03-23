@@ -31,7 +31,6 @@ export const horizonMultisig: { [network: string]: string } = {
 const usdt: { [network: string]: string } = {
   mainnet: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   goerli: "0x509Ee0d083DdF8AC028f2a56731412edD63223B9",
-  mumbai: "0x466DD1e48570FAA2E7f69B75139813e4F8EF75c2",
 };
 
 // USDC addresses
