@@ -32,7 +32,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     ///     - FAIL: IRO failed, committed funds are withdrawable
     enum Status {
         PENDING,
-        ONGOING,
+        FUNDING,
         SUCCESS,
         FAIL
     }
@@ -229,7 +229,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     function commit(uint256 _iroId, uint256 _amountToPurchase) external {
         require(_amountToPurchase > 0, "_amountToPurchase should be greater than zero");
         IRO memory iro = getIRO(_iroId);
-        require(_getStatus(iro) == Status.ONGOING, "IRO is not active");
+        require(_getStatus(iro) == Status.FUNDING, "IRO is not active");
         require(iro.totalFunding + _amountToPurchase * iro.unitPrice <= iro.targetFunding, "Target funding reached");
 
         uint256 valueInBase = _processPayment(iro.unitPrice, _amountToPurchase, iro.currency);
@@ -250,7 +250,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     function claim(uint256 _iroId, address _to) external {
         IRO memory iro = getIRO(_iroId);
         Status status = _getStatus(iro);
-        require(status > Status.ONGOING, "IRO not finished");
+        require(status > Status.FUNDING, "IRO not finished");
         uint256 commitAmount = commits[_iroId][msg.sender];
         require(commitAmount > 0, "Nothing to mint");
         if (status == Status.SUCCESS) {
@@ -395,7 +395,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         if (now64() < _iro.start) return Status.PENDING;
         if (now64() < _iro.end) {
             if (_iro.totalFunding == _iro.targetFunding) return Status.SUCCESS;
-            return Status.ONGOING;
+            return Status.FUNDING;
         }
         if (_iro.totalFunding < _iro.targetFunding) return Status.FAIL;
         return Status.SUCCESS;
