@@ -98,8 +98,6 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         uint64 _start,
         uint64 _end,
         uint256 _unitPrice,
-        uint256 _treasuryFee,
-        uint256 _operationFee,
         uint256 _targetFunding
     );
 
@@ -210,17 +208,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
         });
         _nextAvailableId.increment();
 
-        emit CreateIRO(
-            currentId,
-            _listingOwner,
-            currency,
-            start_,
-            end_,
-            _unitPrice,
-            _treasuryFee,
-            _operationFee,
-            targetFunding
-        );
+        emit CreateIRO(currentId, _listingOwner, currency, start_, end_, _unitPrice, targetFunding);
     }
 
     /// @notice Commit to an IRO
