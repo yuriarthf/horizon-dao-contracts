@@ -24,8 +24,33 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 
+  // get init config
+  const initConfig = await realEstateErc1155Args(hre.network.name);
+
+  // deploy USDT Mock if not present in config
+  if (!initConfig.yieldCurrency) {
+    let deployment;
+    try {
+      deployment = await hre.deployments.get("USDT_Mock");
+    } catch (err) {
+      deployment = await hre.deployments.deploy("USDT_Mock", {
+        contract: "USDTMock",
+        from: deployer,
+        args: [deployer], // TODO: Change to a configurable address
+        log: true,
+      });
+
+      // Verify contract
+      await hre.run("verify", {
+        address: deployment.address,
+        constructorArguments: [deployer],
+      });
+    }
+    initConfig.yieldCurrency = deployment.address;
+  }
+
   // deploy InitialRealEstateOffering proxy
-  const constructorArgs = Object.values(await realEstateErc1155Args(hre.network.name));
+  const constructorArgs = Object.values(initConfig);
   const deployment = await hre.deployments.get("RealEstateERC1155_Impl");
   const iface = new hre.ethers.utils.Interface(deployment.abi);
   const initData = iface.encodeFunctionData("initialize", constructorArgs);
