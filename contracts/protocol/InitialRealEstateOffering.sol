@@ -43,12 +43,12 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Field description:
     ///     - listingOwner: Address of the IRO listing owner
     ///     - start: IRO start time
-    ///     - treasuryFee: Basis point treasury fee over total funds
-    ///     - reservesFee: Basis point real estate reserves fee over total funds
     ///     - end: IRO end time
     ///     - currency: IRO currency, used as a security measurement, if
     ///         the contract-level currency has changed during active IROs
-    ///     - targetCap: Target funding for the IRO to be successful
+    ///     - treasuryFee: treasury fee over total funds
+    ///     - operationFee: real estate reserves fee over total funds
+    ///     - targetFunding: Target funding for the IRO to be successful
     ///     - unitPrice: IRO price per token
     ///     - totalFunding: Total amount of funds collected during an IRO
     struct IRO {
