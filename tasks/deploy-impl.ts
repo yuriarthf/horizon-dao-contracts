@@ -15,5 +15,6 @@ task("deploy:impl", "Commit to an IRO")
       from: deployer,
       args: [],
       log: true,
+      skipIfAlreadyDeployed: false,
     });
   });
