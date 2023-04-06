@@ -19,7 +19,7 @@ import { ethers, upgrades } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Signer } from "@ethersproject/abstract-signer";
 
-describe("RoyalERC1155 Unit Tests", () => {
+describe("RoyalERC1155Upgradeable Unit Tests", () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let deployer: Signer;
   let admin: Signer;
@@ -168,51 +168,6 @@ describe("RoyalERC1155 Unit Tests", () => {
 
       // validate new contract URI
       expect(await royalToken.connect(admin).contractURI()).to.be.equal(NEW_URI);
-    });
-  });
-
-  describe("Validate URI", () => {
-    let tokenURI: string;
-    let tokenId: BigNumber;
-
-    const BASE_URI = "https://test2.com/";
-
-    beforeEach(async () => {
-      // set base URI
-      await royalToken.connect(admin).setBaseURI(BASE_URI);
-    });
-
-    it("setBaseURI: should revert with '!admin' if caller is not the admin", async () => {
-      // should revert with "!admin" message
-      await expect(royalToken.setBaseURI(BASE_URI)).to.be.revertedWith("!admin");
-    });
-
-    it("setURI: should revert with '!admin' if caller is not the admin", async () => {
-      tokenURI = "nft_1";
-      tokenId = BigNumber.from("1");
-
-      // should revert with "!admin" message
-      await expect(royalToken.setURI(tokenId, tokenURI)).to.be.revertedWith("!admin");
-    });
-
-    it("setURI: should return encodePacked(_baseURI, tokenURI) ", async () => {
-      tokenURI = "nft_1";
-      tokenId = BigNumber.from("1");
-
-      // should set token URI
-      await royalToken.connect(admin).setURI(tokenId, tokenURI);
-      // validate token URI
-      expect(await royalToken.connect(admin).uri(tokenId)).to.be.equal(BASE_URI + tokenURI);
-    });
-
-    it("setURI: should return super.uri(tokenId) ERC1155._uri ", async () => {
-      tokenURI = "";
-      tokenId = BigNumber.from("1");
-
-      // should set token URI
-      await royalToken.connect(admin).setURI(tokenId, tokenURI);
-      // validate token URI
-      expect(await royalToken.connect(admin).uri(tokenId)).to.be.equal(CONTRACT_URI);
     });
   });
 

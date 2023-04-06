@@ -27,7 +27,7 @@ contract InitialRealEstateOffering is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev IRO status enum
     /// @dev Status descriptions:
     ///     - PENDING: IRO hasn't started
-    ///     - ONGOING: IRO is active, commits are allowed
+    ///     - FUNDING: IRO is active, commits are allowed
     ///     - SUCCESS: IRO has been successful, claiming is allowed
     ///     - FAIL: IRO failed, committed funds are withdrawable
     enum Status {

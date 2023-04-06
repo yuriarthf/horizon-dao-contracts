@@ -45,7 +45,7 @@ abstract contract SingleApprovableERC1155Upgradeable is UUPSUpgradeable, ERC1155
 
     /// @dev Checks if msg.sender is the admin
     modifier onlyAdmin() {
-        require(msg.sender == admin, "!admin");
+        require(_msgSender() == admin, "!admin");
         _;
     }
 

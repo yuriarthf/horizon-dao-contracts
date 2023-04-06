@@ -51,6 +51,17 @@ describe("SingleApprovableERC1155Upgradeable Unit Tests", () => {
     );
   });
 
+  it("setURI: Should revert with '!admin' if caller is not the admin", async () => {
+    // set sender to zero address
+    await singleApprovableToken.toggleMsgSenderMock(true);
+
+    // should revert with "!admin" message
+    await expect(singleApprovableToken.setURI("ANYTHING")).to.be.revertedWith("!admin");
+
+    // set sender to zero address
+    await singleApprovableToken.toggleMsgSenderMock(false);
+  });
+
   describe("Upgrade implementation", () => {
     it("upgradeTo: Should revert with '!admin' if caller is not the admin", async () => {
       // deploy new implementation
@@ -100,6 +111,9 @@ describe("SingleApprovableERC1155Upgradeable Unit Tests", () => {
       await expect(singleApprovableToken.connect(admin).setAdmin(newAdmin.getAddress()))
         .to.emit(singleApprovableToken, "NewAdmin")
         .withArgs(await newAdmin.getAddress());
+
+      // revert to previous admin
+      singleApprovableToken.connect(newAdmin).setAdmin(admin.getAddress());
     });
   });
 
@@ -387,35 +401,37 @@ describe("SingleApprovableERC1155Upgradeable Unit Tests", () => {
   });
 
   describe("Validate URI", () => {
-    let tokenURI: string;
     let tokenId: BigNumber;
+    let tokenURI: string;
 
     const BASE_URI = "https://test2.com/";
 
-    beforeEach(async () => {
-      // set base URI
-      await singleApprovableToken.connect(admin).setBaseURI(BASE_URI);
+    it("uri: should return super.uri(tokenId) ERC1155._uri", async () => {
+      tokenURI = "nft_0";
+
+      // should set token URI
+      await singleApprovableToken.connect(admin).setURI(tokenURI);
+      // validate token URI
+      expect(await singleApprovableToken.connect(admin).uri(BigNumber.from(1))).to.be.equal(tokenURI);
+    });
+
+    it("setBaseURI: should revert with '!admin' if caller is not the admin", async () => {
+      // should revert with "!admin"
+      await expect(singleApprovableToken.setBaseURI(BASE_URI)).to.be.revertedWith("!admin");
     });
 
     // set token URI
-    it("setURI: should return encodePacked(_baseURI, tokenURI) ", async () => {
-      tokenURI = "nft_1";
-      tokenId = BigNumber.from("1");
+    it("uri: should return encodePacked(_baseURI, tokenURI) if _baseURI is set", async () => {
+      tokenURI = "nft_0";
+      tokenId = BigNumber.from("0");
+
+      // set base URI
+      await singleApprovableToken.connect(admin).setBaseURI(BASE_URI);
 
       // should set token URI
-      await singleApprovableToken.connect(admin).setURI(tokenId, tokenURI);
+      await singleApprovableToken.connect(admin).setURI(tokenURI);
       // validate token URI
-      expect(await singleApprovableToken.connect(admin).uri(tokenId)).to.be.equal(BASE_URI + tokenURI);
-    });
-
-    it("setURI: should return super.uri(tokenId) ERC1155._uri ", async () => {
-      tokenURI = "";
-      tokenId = BigNumber.from("1");
-
-      // should set token URI
-      await singleApprovableToken.connect(admin).setURI(tokenId, tokenURI);
-      // validate token URI
-      expect(await singleApprovableToken.connect(admin).uri(tokenId)).to.be.equal(CONTRACT_URI);
+      expect(await singleApprovableToken.uri(tokenId)).to.be.equal(BASE_URI + tokenId.toString());
     });
   });
 });
