@@ -135,8 +135,8 @@ const config: HardhatUserConfig = {
       accounts: get_accounts(process.env.P_KEY5, process.env.MNEMONIC5),
     },
     // https://mumbai.polygonscan.com
-    mumbai: {
-      url: get_endpoint_url("mumbai"),
+    polygon_mumbai: {
+      url: get_endpoint_url("polygon-mumbai"),
       accounts: get_accounts(process.env.P_KEY80001, process.env.MNEMONIC80001),
     },
   },
@@ -187,7 +187,7 @@ const config: HardhatUserConfig = {
     horizon_multisig: {
       mainnet: "",
       goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
-      mumbai: "",
+      polygon_mumbai: "",
     },
   },
   typechain: {
@@ -217,7 +217,7 @@ function get_endpoint_url(network_name: string) {
   if (process.env.GOERLI_RPC_URL && network_name === "goerli") {
     return process.env.GOERLI_RPC_URL;
   }
-  if (process.env.MUMBAI_RPC_URL && network_name === "mumbai") {
+  if (process.env.MUMBAI_RPC_URL && network_name === "polygon-mumbai") {
     return process.env.MUMBAI_RPC_URL;
   }
 
@@ -228,8 +228,8 @@ function get_endpoint_url(network_name: string) {
       case "mainnet":
       case "goerli":
         return `https://eth-${network_name}.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`;
-      case "mumbai":
-        return `https://polygon-${network_name}.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`;
+      case "polygon-mumbai":
+        return `https://${network_name}.g.alchemy.com/v2/${process.env.ALCHEMY_KEY}`;
       default:
         throw Error("Invalid network");
     }
@@ -241,8 +241,8 @@ function get_endpoint_url(network_name: string) {
     case "mainnet":
     case "goerli":
       return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
-    case "mumbai":
-      return `https://polygon-${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
+    case "polygon-mumbai":
+      return `https://${network_name}.infura.io/v3/${process.env.INFURA_KEY}`;
     default:
       throw Error("Invalid network");
   }

@@ -43,7 +43,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       // Verify contract
       await hre.run("verify", {
         address: deployment.address,
-        constructorArguments: [deployer],
+        constructorArgsParams: [deployer],
       });
     }
     initConfig.currency = deployment.address;
@@ -61,6 +61,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 
+  /*
   if (deployResult.newlyDeployed) {
     // Wait 5 confirmations
     await hre.ethers.provider.waitForTransaction(<string>deployResult.transactionHash, 5);
@@ -70,6 +71,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       address: deployResult.address,
     });
   }
+  */
 };
 func.tags = ["deploy", "InitialRealEstateOffering", "IRO", "RealEstate", "03"];
 export default func;

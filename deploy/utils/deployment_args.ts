@@ -24,7 +24,7 @@ const openSeaCollectionOwner: { [network: string]: string } = {
 export const horizonMultisig: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x63926E60619172FE58870BCeb057b3B437Fa62FC",
-  mumbai: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // Gnosis doesn't support Mumbai
+  polygon_mumbai: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // Gnosis doesn't support Mumbai
 };
 
 // USDT addresses
@@ -46,7 +46,7 @@ const realEstateNft = async () => (await hre.deployments.get("RealEstateERC1155_
 const treasury: { [network: string]: string } = {
   mainnet: "",
   goerli: "0x60d6b442292b33b745815EC90B7Ae5F315b4E777",
-  mumbai: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // Gnosis doesn't support Mumbai
+  polygon_mumbai: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // Gnosis doesn't support Mumbai
 };
 
 // RealEstateReserves
