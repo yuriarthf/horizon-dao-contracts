@@ -107,11 +107,9 @@ export const whitelistSale: Address[] = [];
 /*************** SkyERC20 ***************/
 // Constructor args
 export const skyErc20Args = {
-  admin: "", // HorizonDAO multisig wallet address
-  numberOfEpochs: "", // Number of token releasing epochs (n)
-  firstEpochStartTime: "", // Timestamp of when the first epoch will commence
-  epochDurations: [], // Each of the epoch durations (the last epoch duration is infinite so n-1 values should be provided)
-  rampValues: [], // How much the availableSupply will increase at each epoch start (n values)
+  admin: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // HorizonDAO multisig wallet address
+  initialSupply: ethers.utils.parseEther("1000000"), // Initial supply to mint
+  initialHolder: "0x39a242169BA3B28623E6d235A4Bdd46287d4bae3", // Initial SKY holder
 };
 
 /*************** RealEstateERC1155 ***************/

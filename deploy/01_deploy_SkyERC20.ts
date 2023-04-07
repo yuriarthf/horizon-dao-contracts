@@ -29,7 +29,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Verify contract
     await hre.run("verify", {
       address: deployResult.address,
-      constructorArguments: constructorArgs,
+      constructorArgsParams: constructorArgs,
     });
   }
 };
