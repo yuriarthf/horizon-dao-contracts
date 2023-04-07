@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { ERC721URIStorage } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import { IERC165 } from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -11,7 +13,7 @@ import { IVoteEscrow } from "../interfaces/IVoteEscrow.sol";
 /// @title Vesting
 /// @dev Used to vest underlying ERC20 for various addresses
 /// @author HorizonDAO (Yuri Fernandes)
-contract Vesting is Ownable {
+contract Vesting is ERC721URIStorage, Ownable {
     using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
 
@@ -31,14 +33,14 @@ contract Vesting is Ownable {
     uint256 public constant LOCK_VESTED_MAX_PERIOD = 4 * 365 days; // 4 years
 
     /// @dev Position structure containing required data:
-    ///     - beneficiary: Who'll have control over vested tokens
+    ///     - owner: Who'll have control over vested tokens
     ///     - amount: Amount of tokens to be vested in the position
     ///     - amountPaid: Amount of vested tokens claimed
     ///     - vestingStart: When tokens start to vest
     ///     - vestingEnd: When tokens vest completely
     ///     - lockVested: Whether to enforce token locking after vested
     struct Position {
-        address beneficiary;
+        address owner;
         uint256 amount;
         uint256 amountPaid;
         uint256 vestingStart;
@@ -74,7 +76,7 @@ contract Vesting is Ownable {
     /// @dev Emitted when a new vested position is created
     event PositionCreated(
         address indexed _admin,
-        address indexed _beneficiary,
+        address indexed _to,
         uint256 indexed _positionId,
         uint256 _amount,
         uint256 _vestingStart,
@@ -87,7 +89,7 @@ contract Vesting is Ownable {
 
     /// @dev Initialize Vesting contract
     /// @param _underlying Address of the underlying vesting asset
-    constructor(address _underlying) {
+    constructor(address _underlying) ERC721("Horizon Bonds", "HZB") {
         require(
             IERC165(_underlying).supportsInterface(type(IERC20).interfaceId),
             "Underlying should be IERC20 compatible"
@@ -103,19 +105,19 @@ contract Vesting is Ownable {
     }
 
     /// @dev Create a new vesting position
-    /// @param _beneficiary The address of the vesting position owner
+    /// @param _to The address of the vesting position owner
     /// @param _amount Amount of underlying to be vested
     /// @param _cliffPeriod Period of time that tokens won't vest
     /// @param _vestingDuration Amount of time tokens will vest
     /// @param _lockVested Whether vested underlying locking will be enforced
     function createPosition(
-        address _beneficiary,
+        address _to,
         uint256 _amount,
         uint256 _cliffPeriod,
         uint256 _vestingDuration,
         bool _lockVested
     ) external onlyOwner {
-        require(_beneficiary != address(0), "Invalid beneficiary");
+        require(_to != address(0), "Invalid owner");
         require(
             _vestingDuration >= MIN_VESTING_PERIOD && _vestingDuration <= MAX_VESTING_PERIOD,
             "Invalid vesting duration"
@@ -125,7 +127,7 @@ contract Vesting is Ownable {
         uint256 vestingEnd = vestingStart + _vestingDuration;
         positions.push(
             Position({
-                beneficiary: _beneficiary,
+                owner: _to,
                 amount: _amount,
                 amountPaid: 0,
                 vestingStart: vestingStart,
@@ -134,19 +136,12 @@ contract Vesting is Ownable {
             })
         );
         uint256 currentPositionId = _currentPositionId.current();
-        userPositionIndexes[_beneficiary].push(currentPositionId);
+        _safeMint(_to, currentPositionId);
+        userPositionIndexes[_to].push(currentPositionId);
         _currentPositionId.increment();
         totalVesting += _amount;
 
-        emit PositionCreated(
-            _msgSender(),
-            _beneficiary,
-            currentPositionId,
-            _amount,
-            vestingStart,
-            vestingEnd,
-            _lockVested
-        );
+        emit PositionCreated(_msgSender(), _to, currentPositionId, _amount, vestingStart, vestingEnd, _lockVested);
     }
 
     /// @notice Claim vested underlying
@@ -155,7 +150,7 @@ contract Vesting is Ownable {
     /// @param _lockVestedPeriod Amount of time to lock vested tokens (mandatory if lockVested is true)
     function claim(uint256 _positionId, address _recipient, uint256 _lockVestedPeriod) external {
         Position memory userPosition = positions[_positionId];
-        require(userPosition.beneficiary == _msgSender(), "Invalid position");
+        require(userPosition.owner == _msgSender(), "Invalid position");
         require(userPosition.vestingStart >= block.timestamp, "Vesting hasn't started");
         require(_recipient != address(0), "Invalid recipient");
         (uint256 amountDue_, uint256 prevAmountPaid_) = _amountDuePaid(userPosition);
@@ -256,5 +251,16 @@ contract Vesting is Ownable {
             ) * _position.amount) * BASE_MULTIPLIER) / (_position.vestingEnd - _position.vestingStart)) /
             BASE_MULTIPLIER -
             amountPaid_;
+    }
+
+    /// @inheritdoc ERC721
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal virtual override {
+        require(from == address(0), "Err: token transfer is BLOCKED");
+        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 }
