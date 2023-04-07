@@ -6,6 +6,10 @@ import { ERC20PermitMock } from "./ERC20PermitMock.sol";
 contract USDTMock is ERC20PermitMock {
     address public authority;
 
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+
     constructor(address _authority) ERC20PermitMock("USDT Mock", "USDT") {
         authority = _authority;
     }
